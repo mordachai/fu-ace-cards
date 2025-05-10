@@ -118,3 +118,45 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Deck Assignment Dialog styles */
+.deck-assignment-form fieldset {
+  margin: 1rem 0;
+  padding: 0.5rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+}
+
+.deck-assignment-form legend {
+  font-weight: bold;
+  padding: 0 0.5rem;
+}
+
+.deck-assignment-form .form-group {
+  margin: 0.5rem 0;
+}
+
+.deck-assignment-form label {
+  display: inline-block;
+  width: 120px;
+}
+
+.deck-assignment-form select {
+  width: calc(100% - 130px);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #444;
+  padding: 2px 5px;
+}
+
+.deck-assignment-form button {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #c9c6bd;
+  padding: 5px 10px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.deck-assignment-form button:hover {
+  background: rgba(0, 0, 0, 0.7);
+  border-color: white;
+}

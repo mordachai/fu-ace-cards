@@ -1,0 +1,45 @@
+<form class="deck-assignment-form">
+  <div class="form-group">
+    <p class="notes">Assign card decks to players. Only players using the Ace of Cards class need deck assignments.</p>
+  </div>
+  
+  {{#each players}}
+  <fieldset>
+    <legend>{{name}}</legend>
+    
+    <div class="form-group">
+      <label for="{{id}}-deck">Deck:</label>
+      <select id="{{id}}-deck" name="{{id}}-deck">
+        <option value="">-- Select Deck --</option>
+        {{#each ../deckOptions}}
+          <option value="{{this.id}}" {{#if (eq this.id ../deckId)}}selected{{/if}}>{{this.name}}</option>
+        {{/each}}
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label for="{{id}}-hand">Hand:</label>
+      <select id="{{id}}-hand" name="{{id}}-hand">
+        <option value="">-- Select Hand --</option>
+        {{#each ../handOptions}}
+          <option value="{{this.id}}" {{#if (eq this.id ../handId)}}selected{{/if}}>{{this.name}}</option>
+        {{/each}}
+      </select>
+    </div>
+    
+    <div class="form-group">
+      <label for="{{id}}-discard">Discard Pile:</label>
+      <select id="{{id}}-discard" name="{{id}}-discard">
+        <option value="">-- Select Pile --</option>
+        {{#each ../pileOptions}}
+          <option value="{{this.id}}" {{#if (eq this.id ../discardId)}}selected{{/if}}>{{this.name}}</option>
+        {{/each}}
+      </select>
+    </div>
+  </fieldset>
+  {{/each}}
+  
+  <div class="form-group">
+    <button type="submit"><i class="fas fa-save"></i> Save Assignments</button>
+  </div>
+</form>

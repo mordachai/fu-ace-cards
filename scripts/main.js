@@ -1,68 +1,68 @@
 // scripts/main.js
+import { DeckManager } from './deck-manager.js';
+
 const MODULE_ID = 'fu-ace-cards';
 
-Hooks.once('init', () => console.log(`${MODULE_ID} | Initializing module`));
+// Player deck tracking
+let playerDecks = {};
+let tablePile = null;
+
+Hooks.once('init', () => {
+  console.log(`${MODULE_ID} | Initializing module`);
+  DeckManager.init();
+  
+  // Register Handlebars helper for equality check
+  Handlebars.registerHelper('eq', function(a, b) {
+    return a === b;
+  });
+});
 
 Hooks.once('ready', async () => {
   const user = game.user;
-  if (!user.isGM && !user.character) return;
+  // Remove the character check - all users should see the table
 
-  // Locate piles with retry mechanism
-  const PILE_NAMES = {
-    deck:    'Ace of Cards Deck',
-    table:   'Table',
-    discard: 'Ace of Cards Discard Pile'
-  };
-  
-  async function waitForPiles(maxAttempts = 10, delay = 1000) {
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const piles = {};
-      let allFound = true;
-      
-      for (const [key, name] of Object.entries(PILE_NAMES)) {
-        const pile = game.cards.getName(name);
-        if (!pile) {
-          allFound = false;
-          break;
-        }
-        piles[key] = pile;
-      }
-      
-      if (allFound) return piles;
-      
-      if (attempt < maxAttempts - 1) {
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
+  // Find the shared table pile
+  tablePile = game.cards.getName('Table');
+  if (!tablePile) {
+    if (user.isGM) {
+      tablePile = await Cards.create({
+        name: 'Table',
+        type: 'pile',
+        permission: { default: 2 }
+      });
+      ui.notifications.info('Created shared table pile');
+    } else {
+      ui.notifications.error('Table pile not found. Please ask GM to create it.');
+      return;
     }
-    
-    throw new Error(`Required card piles not found after ${maxAttempts} attempts`);
   }
 
-  let piles;
+  // Get player-specific piles
+  const userId = user.id;
+  let piles = null;
+  
+  // Try to get player decks (but don't fail if they don't exist)
   try {
-    piles = await waitForPiles();
+    playerDecks[userId] = await DeckManager.findOrCreatePlayerPiles(userId);
+    piles = playerDecks[userId];
   } catch (error) {
-    ui.notifications.error(`${MODULE_ID} | ${error.message}`);
-    return;
+    console.log(`${MODULE_ID} | No decks assigned for ${user.name}`);
   }
-
-  // GM resets deck if empty
-  if (user.isGM && piles.deck.cards.size === 0) {
+  
+  // Only reset deck if user has their own deck assigned
+  if (piles?.deck?.cards.size === 0) {
     await piles.discard.reset({ shuffle: true });
-    ui.notifications.info('♻️ Deck reset & shuffled by GM');
+    ui.notifications.info('♻️ Deck reset & shuffled');
   }
 
-  // Check if template exists before rendering
+  // Everyone should see the table
   let html;
   try {
     html = await renderTemplate(
       `modules/${MODULE_ID}/templates/areas.hbs`,
       {
         isGM: user.isGM,
-        hasHandCards: !!game.cards.find(c =>
-          c.type === 'hand' &&
-          c.getUserLevel(user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
-        )
+        hasHandCards: !!piles?.hand
       }
     );
   } catch (error) {
@@ -109,9 +109,41 @@ Hooks.once('ready', async () => {
 
   // Button handlers
   const cleanTable = async () => {
-    const ids = piles.table.cards.map(c => c.id);
+    const ids = tablePile.cards.map(c => c.id);
     if (!ids.length) return ui.notifications.info('Table empty');
-    await piles.table.pass(piles.discard, ids, { chatNotification: false });
+    
+    // Group cards by their owner
+    const cardsByOwner = {};
+    for (const card of tablePile.cards) {
+      const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+      if (!ownerId) {
+        ui.notifications.warn(`Card ${card.name} has no owner`);
+        continue;
+      }
+      if (!cardsByOwner[ownerId]) cardsByOwner[ownerId] = [];
+      cardsByOwner[ownerId].push(card.id);
+    }
+    
+    // Pass cards to their owner's discard pile
+    for (const [ownerId, cardIds] of Object.entries(cardsByOwner)) {
+      // Get the owner's deck assignments
+      const ownerDeckData = DeckManager.getPlayerDecks(ownerId);
+      if (!ownerDeckData?.discardId) {
+        ui.notifications.warn(`No discard pile assigned for ${game.users.get(ownerId)?.name}`);
+        continue;
+      }
+      
+      // Find the discard pile
+      const discardPile = game.cards.get(ownerDeckData.discardId);
+      if (!discardPile) {
+        ui.notifications.warn(`Discard pile not found for ${game.users.get(ownerId)?.name}`);
+        continue;
+      }
+      
+      // Pass the cards to the owner's discard pile
+      await tablePile.pass(discardPile, cardIds, { chatNotification: false });
+    }
+    
     renderTable();
     // Emit socket message to notify other players
     game.socket.emit(`module.${MODULE_ID}`, {
@@ -122,26 +154,18 @@ Hooks.once('ready', async () => {
   };
 
   const drawCard = async () => {
-    const hand = game.cards.find(c =>
-      c.type === 'hand' &&
-      c.getUserLevel(user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
-    );
-    if (!hand) return;
+    if (!piles?.deck) return ui.notifications.warn('No deck assigned');
     if (piles.deck.cards.size === 0) return ui.notifications.warn('Deck empty');
-    await piles.deck.deal([hand], 1, { how: CONST.CARD_DRAW_MODES.RANDOM, chatNotification: false });
+    await piles.deck.deal([piles.hand], 1, { how: CONST.CARD_DRAW_MODES.RANDOM, chatNotification: false });
     renderHand();
     ui.notifications.info('You drew a card');
   };
 
   const resetHand = async () => {
-    const hand = game.cards.find(c =>
-      c.type === 'hand' &&
-      c.getUserLevel(user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
-    );
-    if (!hand) return;
-    const ids = hand.cards.map(c => c.id);
+    if (!piles?.hand) return ui.notifications.warn('No hand assigned');
+    const ids = piles.hand.cards.map(c => c.id);
     if (!ids.length) return ui.notifications.info('Hand empty');
-    await hand.pass(piles.discard, ids, { chatNotification: false });
+    await piles.hand.pass(piles.discard, ids, { chatNotification: false });
     renderHand();
     ui.notifications.info('Hand reset');
   };
@@ -158,7 +182,7 @@ Hooks.once('ready', async () => {
   // Render functions
   function renderTable() {
     const tableArea = document.getElementById('fu-table-area');
-    const cards = piles.table.cards;
+    const cards = tablePile.cards;
 
     // Hide the entire table area if empty
     if (cards.size === 0) {
@@ -185,10 +209,11 @@ Hooks.once('ready', async () => {
     if (!handCards) return;
 
     handCards.innerHTML = '';
-    const hand = game.cards.find(c =>
-      c.type === 'hand' &&
-      c.getUserLevel(user) === CONST.DOCUMENT_OWNERSHIP_LEVELS.OWNER
-    );
+    
+    // Check if player has piles assigned
+    if (!piles?.hand) return;
+    
+    const hand = piles.hand;
     if (!hand) return;
 
     for (const c of hand.cards) {
@@ -204,7 +229,11 @@ Hooks.once('ready', async () => {
         }
         
         try {
-          await hand.pass(piles.table, [c.id], { chatNotification: false });
+          await hand.pass(tablePile, [c.id], { chatNotification: false });
+          
+          // Set owner flag on the card
+          await tablePile.cards.get(c.id).setFlag(MODULE_ID, 'ownerId', game.userId);
+          
           // Only emit socket if pass was successful
           game.socket.emit(`module.${MODULE_ID}`, {
             action: 'cardToTable',
@@ -224,9 +253,13 @@ Hooks.once('ready', async () => {
   }
 
   // Hooks & socket
-  Hooks.on('passCards', () => {
-    renderTable();
-    if (document.getElementById('fu-hand-cards')) renderHand();
+  Hooks.on('updateCards', (cards, change, options, userId) => {
+    // Refresh displays when card stacks change
+    if (cards === tablePile || 
+        Object.values(playerDecks).some(p => cards === p?.deck || cards === p?.hand || cards === p?.discard)) {
+      renderTable();
+      if (document.getElementById('fu-hand-cards')) renderHand();
+    }
   });
   
   // Socket handler with validation
@@ -236,7 +269,7 @@ Hooks.once('ready', async () => {
     switch (msg.action) {
       case 'cardToTable':
         // Validate that the card actually was moved to the table
-        const tableCard = piles.table.cards.get(msg.cardId);
+        const tableCard = tablePile.cards.get(msg.cardId);
         if (tableCard) {
           renderTable();
         }

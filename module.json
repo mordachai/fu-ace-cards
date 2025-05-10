@@ -9,17 +9,42 @@
     "verified": "12"
   },
   "authors": [
-    { "name": "Gus", "email": "" }
+    {
+      "name": "Gus",
+      "flags": {}
+    }
   ],
   "esmodules": [
-    "scripts/main.js"
+    "scripts/main.js",
+    "scripts/deck-manager.js"
   ],
   "styles": [
     "styles/fu-style.css"
   ],
-  "packs": [],
+  "packs": [
+    {
+      "name": "ace-of-card-decks",
+      "label": "Ace of Card Decks",
+      "path": "packs/ace-of-card-decks",
+      "type": "Cards",
+      "ownership": {
+        "PLAYER": "OBSERVER",
+        "ASSISTANT": "OWNER"
+      },
+      "system": "projectfu"
+    }
+  ],
   "socket": true,
   "url": "https://github.com/uktena/fu-ace-cards",
   "manifest": "https://raw.githubusercontent.com/uktena/fu-ace-cards/main/module.json",
-  "download": "https://github.com/uktena/fu-ace-cards/releases/download/v0.1.0/fu-ace-cards.zip"
+  "download": "https://github.com/uktena/fu-ace-cards/releases/download/v0.1.0/fu-ace-cards.zip",
+  "relationships": {
+    "systems": [
+      {
+        "id": "projectfu",
+        "type": "system",
+        "compatibility": {}
+      }
+    ]
+  }
 }
