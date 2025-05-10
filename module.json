@@ -35,9 +35,9 @@
     }
   ],
   "socket": true,
-  "url": "https://github.com/uktena/fu-ace-cards",
+  "url": "https://github.com/mordachai/fu-ace-cards/tree/main",
   "manifest": "https://raw.githubusercontent.com/mordachai/fu-ace-cards/refs/heads/main/module.json",
-  "download": "",
+  "download": "https://github.com/mordachai/fu-ace-cards/raw/refs/heads/main/fu-ace-cards.zip",
   "relationships": {
     "systems": [
       {
