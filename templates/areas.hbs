@@ -1,0 +1,25 @@
+<div id="fu-table-area" class="fu-area">
+  <div id="fu-table-cards" class="fu-hud-cards"></div>
+  <div class="fu-hud-controls">
+    {{#if isGM}}
+      <button id="fu-clean-table" class="fu-button"><i class="fa-solid fa-broom-wide" title="Clean Table"></i></button>
+    {{else}}
+      {{#if hasHandCards}}
+        <button id="fu-clean-table" class="fu-button"><i class="fa-solid fa-broom-wide" title="Clean Table"></i></button>
+      {{/if}}
+    {{/if}}
+  </div>
+</div>
+
+{{!-- Only show hand area to non-GM players who have a hand --}}
+{{#unless isGM}}
+  {{#if hasHandCards}}
+    <div id="fu-hand-area" class="fu-area">
+      <div id="fu-hand-cards" class="fu-hud-cards"></div>
+      <div class="fu-hud-controls">
+        <button id="fu-draw-card" class="fu-button"><i class="fa-solid fa-cards-blank" title="Draw Card"></i></button>
+        <button id="fu-reset-hand" class="fu-button"><i class="fa-solid fa-broom-wide" title="Reset Hand"></i></button>
+      </div>
+    </div>
+  {{/if}}
+{{/unless}}

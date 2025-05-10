@@ -1,0 +1,120 @@
+/* styles/style.css */
+
+/* Table area (fixed at bottom) */
+#fu-table-area {
+  position: fixed;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 15%;
+  max-height: 200px;
+  border: 2px solid #333;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 10px;
+  border-radius: 8px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow-x: auto;
+}
+
+/* Hand area as a collapsible drawer with a 30px handle visible */
+#fu-hand-area {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  /* Leave 10px visible */
+  transform: translateX(-50%) translateY(calc(100% - 10px));
+  transition: transform 0.3s ease;
+  min-width: 20%;
+  max-height: 150px;
+  border: 2px solid #333;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 10px;
+  border-radius: 8px 8px 0 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow-x: auto;
+}
+
+/* Open state: slide fully into view */
+#fu-hand-area.open {
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Handle indicator: small bar at top of drawer */
+#fu-hand-area::before {
+  content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 4px;
+  background: #555;
+  border-radius: 2px;
+}
+
+/* Cards container */
+.fu-hud-cards {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1;
+}
+
+/* Controls container */
+.fu-hud-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+/* Stack controls vertically in hand area */
+#fu-hand-area .fu-hud-controls {
+  flex-direction: column;
+}
+
+/* Card thumbnail styling */
+.fu-card {
+  width: 80px;
+  height: 120px;
+  margin: 0 5px;
+  border: 1px solid #555;
+  border-radius: 5px;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  transition: transform 0.25s;
+}
+.fu-card:hover {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 3px #fff7e3);
+}
+
+/* Button styling */
+.fu-button {
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: #c9c6bd;
+  background: rgba(0, 0, 0, 0.5);
+  border: #c9c6bd 1px solid;
+  border-radius: 4px;
+}
+
+.fu-button:hover {
+  border-color: white;
+  color: white;
+}
+
+.fu-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

@@ -1,0 +1,25 @@
+{
+  "id": "fu-ace-cards",
+  "title": "Fabula Ultima: Ace of Cards",
+  "description": "Basic draw, hand, and shared table areas for the Fabula Ultima Ace of Cards class.",
+  "version": "0.1.0",
+  "license": "MIT",
+  "compatibility": {
+    "minimum": "12",
+    "verified": "12"
+  },
+  "authors": [
+    { "name": "Gus", "email": "" }
+  ],
+  "esmodules": [
+    "scripts/main.js"
+  ],
+  "styles": [
+    "styles/fu-style.css"
+  ],
+  "packs": [],
+  "socket": true,
+  "url": "https://github.com/uktena/fu-ace-cards",
+  "manifest": "https://raw.githubusercontent.com/uktena/fu-ace-cards/main/module.json",
+  "download": "https://github.com/uktena/fu-ace-cards/releases/download/v0.1.0/fu-ace-cards.zip"
+}
