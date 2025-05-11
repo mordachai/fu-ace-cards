@@ -148,7 +148,7 @@ function updateTableSetDisplay(cards, infoBar, clickHandler) {
   // Detect sets for each player
   const setIndicators = [];
   
-    for (const [playerId, playerCards] of Object.entries(cardsByPlayer)) {
+  for (const [playerId, playerCards] of Object.entries(cardsByPlayer)) {
     const sets = detectFabulaUltimaSets(playerCards);
     // Get character name instead of player name
     const user = game.users.get(playerId);
@@ -156,21 +156,21 @@ function updateTableSetDisplay(cards, infoBar, clickHandler) {
     const displayName = character?.name || user?.name || 'Unknown';
     
     sets.forEach(set => {
-        const isOwnSet = playerId === game.userId;
-        const className = `fu-set-indicator ${set.type} ${isOwnSet ? 'own-set' : 'other-set'}`;
-        
-        setIndicators.push(`
-        <div class="${className}" 
-            style="--set-color: ${getSetColor(set.type)}"
-            data-set-type="${set.type}"
-            data-card-ids="${set.cardIds.join(',')}"
-            data-player-id="${playerId}">
-            <span class="set-name">${SET_NAMES[set.type]}</span>
-            <span class="player-name">${displayName}</span>
-        </div>
-        `);
+      const isOwnSet = playerId === game.userId;
+      const className = `fu-set-indicator ${set.type} ${isOwnSet ? 'own-set' : 'other-set'}`;
+      
+    setIndicators.push(`
+    <div class="${className}" 
+        style="--set-color: ${getSetColor(set.type)}"
+        data-set-type="${set.type}"
+        data-card-ids="${set.cardIds.join(',')}"
+        data-player-id="${playerId}">
+        <span class="set-name">${SET_NAMES[set.type]}</span>
+        <span class="player-name">${displayName}</span>
+    </div>
+    `);
     });
-    }
+  }
   
   if (setIndicators.length === 0) {
     infoBar.classList.remove('has-sets');
@@ -302,12 +302,21 @@ export function showSetTooltip(indicator, containerType = null) {
   indicator._tooltip = tooltip;
 }
 
-// Hide tooltip
+// Hide tooltip - enhanced version
 export function hideSetTooltip(indicator) {
-  if (indicator._tooltip) {
+  // Try to remove tooltip from indicator
+  if (indicator && indicator._tooltip) {
     indicator._tooltip.remove();
     indicator._tooltip = null;
   }
+  
+  // Also remove any tooltips with class fu-set-tooltip that might be in the DOM
+  document.querySelectorAll('.fu-set-tooltip').forEach(tooltip => tooltip.remove());
+  
+  // And remove the tooltip with ID fu-set-tooltip if it exists
+  const tooltipElement = document.getElementById('fu-set-tooltip');
+  if (tooltipElement) tooltipElement.remove();
+  
   clearHighlights(); // Also clear highlights when hiding tooltip
 }
 

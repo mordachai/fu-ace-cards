@@ -63,14 +63,15 @@ export function detectFabulaUltimaSets(cards) {
   const fullStatus = findFullStatus(analyzableCards);
   if (fullStatus) sets.push(fullStatus);
   
-  const tripleSupport = findTripleSupport(analyzableCards);
-  if (tripleSupport) sets.push(tripleSupport);
+  // These now return arrays
+  const tripleSupports = findTripleSupport(analyzableCards);
+  sets.push(...tripleSupports);
   
-  const doubleTrouble = findDoubleTrouble(analyzableCards);
-  if (doubleTrouble) sets.push(doubleTrouble);
+  const doubleTroubles = findDoubleTrouble(analyzableCards);
+  sets.push(...doubleTroubles);
   
-  const magicPair = findMagicPair(analyzableCards);
-  if (magicPair) sets.push(magicPair);
+  const magicPairs = findMagicPair(analyzableCards);
+  sets.push(...magicPairs);
   
   // Check for forbidden monarch if heroic skill is available
   const forbiddenMonarch = findForbiddenMonarch(analyzableCards);
@@ -161,67 +162,99 @@ function findFullStatus(cards) {
   return null;
 }
 
-// Find Triple Support: 3 cards of same value
-function findTripleSupport(cards) {
-  const valueGroups = groupByValue(cards);
-  
-  for (const [value, group] of Object.entries(valueGroups)) {
-    if (group.length >= 3) {
-      const threeCards = group.slice(0, 3);
-      return {
-        type: 'triple-support',
-        cards: threeCards.map(c => c.card),
-        cardIds: threeCards.map(c => c.id),
-        value: parseInt(value),
-        values: threeCards.map(c => c.value)
-      };
-    }
-  }
-  return null;
-}
-
-// Find Double Trouble: 2 pairs
-function findDoubleTrouble(cards) {
+// Find ALL Magic Pairs: 2 cards of same value
+function findMagicPair(cards) {
   const valueGroups = groupByValue(cards);
   const pairs = [];
   
   for (const [value, group] of Object.entries(valueGroups)) {
     if (group.length >= 2) {
-      pairs.push({ value: parseInt(value), cards: group.slice(0, 2) });
+      // For each pair, create a separate set
+      for (let i = 0; i < group.length - 1; i += 2) {
+        if (i + 1 < group.length) {
+          const twoCards = group.slice(i, i + 2);
+          pairs.push({
+            type: 'magic-pair',
+            cards: twoCards.map(c => c.card),
+            cardIds: twoCards.map(c => c.id),
+            value: parseInt(value),
+            values: twoCards.map(c => c.value)
+          });
+        }
+      }
     }
   }
   
-  if (pairs.length >= 2) {
-    const selectedPairs = pairs.slice(0, 2);
-    const allCards = [...selectedPairs[0].cards, ...selectedPairs[1].cards];
-    return {
-      type: 'double-trouble',
-      cards: allCards.map(c => c.card),
-      cardIds: allCards.map(c => c.id),
-      values: allCards.map(c => c.value),
-      pairValues: selectedPairs.map(p => p.value)
-    };
-  }
-  return null;
+  return pairs;
 }
 
-// Find Magic Pair: 2 cards of same value
-function findMagicPair(cards) {
+// Find ALL Triple Supports: 3 cards of same value
+function findTripleSupport(cards) {
   const valueGroups = groupByValue(cards);
+  const triples = [];
   
   for (const [value, group] of Object.entries(valueGroups)) {
-    if (group.length >= 2) {
-      const twoCards = group.slice(0, 2);
-      return {
-        type: 'magic-pair',
-        cards: twoCards.map(c => c.card),
-        cardIds: twoCards.map(c => c.id),
-        value: parseInt(value),
-        values: twoCards.map(c => c.value)
-      };
+    if (group.length >= 3) {
+      // For each triple, create a separate set
+      for (let i = 0; i <= group.length - 3; i += 3) {
+        if (i + 2 < group.length) {
+          const threeCards = group.slice(i, i + 3);
+          triples.push({
+            type: 'triple-support',
+            cards: threeCards.map(c => c.card),
+            cardIds: threeCards.map(c => c.id),
+            value: parseInt(value),
+            values: threeCards.map(c => c.value)
+          });
+        }
+      }
     }
   }
-  return null;
+  
+  return triples;
+}
+
+// Find ALL Double Troubles: 2 pairs (checking all combinations)
+function findDoubleTrouble(cards) {
+  const valueGroups = groupByValue(cards);
+  const pairGroups = [];
+  const doubleTroubles = [];
+  
+  // First, collect all possible pairs
+  for (const [value, group] of Object.entries(valueGroups)) {
+    if (group.length >= 2) {
+      for (let i = 0; i <= group.length - 2; i += 2) {
+        if (i + 1 < group.length) {
+          pairGroups.push({ 
+            value: parseInt(value), 
+            cards: group.slice(i, i + 2) 
+          });
+        }
+      }
+    }
+  }
+  
+  // Now find all combinations of two different pairs
+  for (let i = 0; i < pairGroups.length; i++) {
+    for (let j = i + 1; j < pairGroups.length; j++) {
+      const pair1 = pairGroups[i];
+      const pair2 = pairGroups[j];
+      
+      // Make sure they're different values
+      if (pair1.value !== pair2.value) {
+        const allCards = [...pair1.cards, ...pair2.cards];
+        doubleTroubles.push({
+          type: 'double-trouble',
+          cards: allCards.map(c => c.card),
+          cardIds: allCards.map(c => c.id),
+          values: allCards.map(c => c.value),
+          pairValues: [pair1.value, pair2.value]
+        });
+      }
+    }
+  }
+  
+  return doubleTroubles;
 }
 
 // Find Forbidden Monarch: 4 of same value + 1 joker
