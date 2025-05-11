@@ -356,41 +356,30 @@ Hooks.once('ready', async () => {
     }
   }
 
-  // Create chat message for set activation with card images
+  // Create chat message for set activation - using template
   async function createSetActivationMessage(setData, playerId, mpCost) {
     const description = getSetEffectDescription(setData);
     const playerName = game.users.get(playerId).name;
     const characterName = game.users.get(playerId).character?.name;
     const displayName = characterName || playerName;
     
-    // Create card images HTML with overlap styling
-    let cardImagesHtml = `<div class="fu-chat-cards-container">`;
+    // Prepare data for template
+    const templateData = {
+      setType: setData.type,
+      setName: SET_NAMES[setData.type],
+      playerName: displayName,
+      mpCost: mpCost,
+      effect: description.effect,
+      comboDescription: description.base,
+      cards: setData.cards.map(card => ({
+        id: card.id,
+        name: card.name,
+        img: card.faces[card.face ?? 0]?.img
+      }))
+    };
     
-    setData.cards.forEach((card, index) => {
-      const imgSrc = card.faces[card.face ?? 0]?.img;
-      // Calculate left margin for overlap effect (except first card)
-      const marginStyle = index > 0 ? `style="margin-left: -40px;"` : '';
-      cardImagesHtml += `<img src="${imgSrc}" class="fu-chat-card-img" ${marginStyle} title="${card.name}">`;
-    });
-    
-    cardImagesHtml += `</div>`;
-    
-    return `
-      <div class="fu-set-activation">
-        <div class="set-header">
-          <strong>${displayName}</strong> activates <span class="set-name ${setData.type}">${SET_NAMES[setData.type]}</span>
-        </div>
-        <div class="set-cards">
-          ${cardImagesHtml}
-        </div>
-        <div class="set-effect">
-          <strong>Effect:</strong> ${description.effect}
-        </div>
-        <div class="set-cost">
-          <strong>MP Cost:</strong> ${mpCost}
-        </div>
-      </div>
-    `;
+    // Render the template
+    return await renderTemplate(`modules/${MODULE_ID}/templates/set-activation.hbs`, templateData);
   }
 
   // Render the table area

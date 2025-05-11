@@ -422,7 +422,7 @@
 
 .fu-chat-cards-container {
   display: flex;
-  margin: 20px 0;
+  margin: 10px 0;
   justify-content: space-evenly;
 }
 
