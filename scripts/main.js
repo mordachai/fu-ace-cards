@@ -13,12 +13,12 @@ import {
   showSetTooltip,
   hideSetTooltip
 } from './ui-enhancements.js';
-import { getCardValue } from './set-detector.js';
+import { getCardValue, SET_NAMES } from './set-detector.js';
 
 // Player deck tracking
 let playerDecks = {};
 let tablePile = null;
-let currentTooltip = null;
+let activeTooltips = new Set();
 
 // Export function to get current player's piles
 export function getCurrentPlayerPiles() {
@@ -33,6 +33,27 @@ export function getPlayerPiles(userId) {
 // Export function to get table pile
 export function getTablePile() {
   return tablePile;
+}
+
+// Clean up all tooltips
+function cleanupAllTooltips() {
+  // Remove any active tooltips
+  activeTooltips.forEach(tooltip => {
+    if (tooltip && tooltip.parentNode) {
+      tooltip.parentNode.removeChild(tooltip);
+    }
+  });
+  activeTooltips.clear();
+  
+  // Also remove any tooltips with class fu-set-tooltip
+  document.querySelectorAll('.fu-set-tooltip').forEach(tooltip => tooltip.remove());
+  
+  // And remove the tooltip with ID fu-set-tooltip if it exists
+  const tooltipElement = document.getElementById('fu-set-tooltip');
+  if (tooltipElement) tooltipElement.remove();
+  
+  // Clear card highlights
+  clearHighlights();
 }
 
 Hooks.once('init', () => {
@@ -69,7 +90,6 @@ Hooks.once('ready', async () => {
   const userId = user.id;
   let piles = null;
   
-  // Try to get player decks (but don't fail if they don't exist)
   try {
     playerDecks[userId] = await DeckManager.findOrCreatePlayerPiles(userId);
     piles = playerDecks[userId];
@@ -77,13 +97,13 @@ Hooks.once('ready', async () => {
     console.log(`${MODULE_ID} | No decks assigned for ${user.name}`);
   }
   
-  // Only reset deck if user has their own deck assigned
+  // Only reset deck if user has their own deck assigned and it's empty
   if (piles?.deck?.cards.size === 0) {
     await piles.discard.reset({ shuffle: true });
     ui.notifications.info('♻️ Deck reset & shuffled');
   }
 
-  // Everyone should see the table
+  // Render UI areas
   let html;
   try {
     html = await renderTemplate(
@@ -100,7 +120,7 @@ Hooks.once('ready', async () => {
   
   document.body.insertAdjacentHTML('beforeend', html);
 
-  // Cache elements
+  // Cache element references
   const tableCards = document.getElementById('fu-table-cards');
   const handCards  = document.getElementById('fu-hand-cards');
   const btnClean   = document.getElementById('fu-clean-table');
@@ -111,7 +131,7 @@ Hooks.once('ready', async () => {
   // Track timeout for cleanup
   let drawerTimeout;
   
-  // Drawer behavior (hand area)
+  // Setup drawer behavior (hand area)
   if (handArea) {
     const openDrawer = () => {
       clearTimeout(drawerTimeout);
@@ -135,7 +155,7 @@ Hooks.once('ready', async () => {
     };
   }
 
-  // Button handlers
+  // Button handler: Clean Table
   const cleanTable = async () => {
     const ids = tablePile.cards.map(c => c.id);
     if (!ids.length) return ui.notifications.info('Table empty');
@@ -172,32 +192,47 @@ Hooks.once('ready', async () => {
       await tablePile.pass(discardPile, cardIds, { chatNotification: false });
     }
     
+    // Clean up tooltips when table is cleared
+    cleanupAllTooltips();
+    
+    // Update the UI
     renderTable();
+    
     // Emit socket message to notify other players
     game.socket.emit(`module.${MODULE_ID}`, {
       action: 'cleanTable',
       senderId: game.userId
     });
+    
     ui.notifications.info('Table cleared');
   };
 
+  // Button handler: Draw Card
   const drawCard = async () => {
     if (!piles?.deck) return ui.notifications.warn('No deck assigned');
     if (piles.deck.cards.size === 0) return ui.notifications.warn('Deck empty');
+    
     await piles.deck.deal([piles.hand], 1, { how: CONST.CARD_DRAW_MODES.RANDOM, chatNotification: false });
     renderHand();
     ui.notifications.info('You drew a card');
   };
 
+  // Button handler: Reset Hand
   const resetHand = async () => {
     if (!piles?.hand) return ui.notifications.warn('No hand assigned');
     const ids = piles.hand.cards.map(c => c.id);
     if (!ids.length) return ui.notifications.info('Hand empty');
+    
     await piles.hand.pass(piles.discard, ids, { chatNotification: false });
+    
+    // Clean up tooltips when hand is reset
+    cleanupAllTooltips();
+    
     renderHand();
     ui.notifications.info('Hand reset');
   };
 
+  // Add event listeners to buttons
   btnClean?.addEventListener('click', cleanTable);
   btnDraw?.addEventListener('click', drawCard);  
   btnReset?.addEventListener('click', resetHand);
@@ -213,7 +248,7 @@ Hooks.once('ready', async () => {
     
     // Hide tooltip immediately when clicking
     hideSetTooltip(indicator);
-    clearHighlights(); // Clear highlights when playing
+    cleanupAllTooltips();
     
     // Double-check we can still afford it
     const mpCost = parseInt(indicator.dataset.mpCost);
@@ -228,6 +263,7 @@ Hooks.once('ready', async () => {
     }
     
     const cardIds = indicator.dataset.cardIds.split(',');
+    const setType = indicator.dataset.setType;
     
     try {
       // Play all cards in the set to table
@@ -242,21 +278,21 @@ Hooks.once('ready', async () => {
         const tableCard = tablePile.cards.get(cardId);
         if (tableCard) {
           await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
-          await tableCard.setFlag(MODULE_ID, 'setType', setData.type);
+          await tableCard.setFlag(MODULE_ID, 'setType', setType);
         }
       }
       
       // Emit socket message to notify other players
       game.socket.emit(`module.${MODULE_ID}`, {
         action: 'setPlayed',
-        setType: setData.type,
+        setType: setType,
         cardIds: cardIds,
         playerId: game.userId
       });
       
       renderHand();
       renderTable();
-      ui.notifications.info(`Played ${setData.name} to table (${mpCost} MP)`);
+      ui.notifications.info(`Played ${SET_NAMES[setType]} to table (${mpCost} MP)`);
       
     } catch (error) {
       ui.notifications.error(`Failed to play set: ${error.message}`);
@@ -264,7 +300,7 @@ Hooks.once('ready', async () => {
     }
   }
 
-  // Handle clicking a set on the table
+  // Handle clicking a set on the table - shows in chat and discards the cards
   async function activateTableSet(setData, playerId) {
     // Only the owner can activate their sets
     if (playerId !== game.userId) {
@@ -274,32 +310,78 @@ Hooks.once('ready', async () => {
     
     const mpCost = setData.cards.length * 5;
     
-    // Send to chat with full details
+    // Create chat message with card images
     const chatData = {
       user: game.userId,
       content: await createSetActivationMessage(setData, playerId, mpCost),
       type: CONST.CHAT_MESSAGE_TYPES.OTHER
     };
     
-    ChatMessage.create(chatData);
+    await ChatMessage.create(chatData);
     
-    // Future: Actually deduct MP and apply effects
-    // await deductMP(mpCost);
-    // await applySetEffects(setData);
+    // Get the player's discard pile
+    const deckData = DeckManager.getPlayerDecks(playerId);
+    if (!deckData?.discardId) {
+      ui.notifications.error("Could not find your discard pile");
+      return;
+    }
+    
+    const discardPile = game.cards.get(deckData.discardId);
+    if (!discardPile) {
+      ui.notifications.error("Discard pile not found");
+      return;
+    }
+    
+    // Move the set cards from table to discard
+    try {
+      await tablePile.pass(discardPile, setData.cardIds, { chatNotification: false });
+      
+      // Emit socket message to notify other players
+      game.socket.emit(`module.${MODULE_ID}`, {
+        action: 'setActivated',
+        setType: setData.type,
+        cardIds: setData.cardIds,
+        playerId: game.userId
+      });
+      
+      // Refresh displays
+      renderTable();
+      ui.notifications.info(`Set activated and cards discarded`);
+      
+      // Future: Actually deduct MP and apply effects
+      // await deductMP(mpCost);
+      // await applySetEffects(setData);
+    } catch (error) {
+      ui.notifications.error(`Failed to discard set cards: ${error.message}`);
+    }
   }
 
-  // Create chat message for set activation
+  // Create chat message for set activation with card images
   async function createSetActivationMessage(setData, playerId, mpCost) {
     const description = getSetEffectDescription(setData);
     const playerName = game.users.get(playerId).name;
+    const characterName = game.users.get(playerId).character?.name;
+    const displayName = characterName || playerName;
+    
+    // Create card images HTML with overlap styling
+    let cardImagesHtml = `<div class="fu-chat-cards-container">`;
+    
+    setData.cards.forEach((card, index) => {
+      const imgSrc = card.faces[card.face ?? 0]?.img;
+      // Calculate left margin for overlap effect (except first card)
+      const marginStyle = index > 0 ? `style="margin-left: -40px;"` : '';
+      cardImagesHtml += `<img src="${imgSrc}" class="fu-chat-card-img" ${marginStyle} title="${card.name}">`;
+    });
+    
+    cardImagesHtml += `</div>`;
     
     return `
       <div class="fu-set-activation">
         <div class="set-header">
-          <strong>${playerName}</strong> activates <span class="set-name">${setData.name}</span>
+          <strong>${displayName}</strong> activates <span class="set-name ${setData.type}">${SET_NAMES[setData.type]}</span>
         </div>
         <div class="set-cards">
-          Cards: ${description.cards}
+          ${cardImagesHtml}
         </div>
         <div class="set-effect">
           <strong>Effect:</strong> ${description.effect}
@@ -311,7 +393,7 @@ Hooks.once('ready', async () => {
     `;
   }
 
-  // Render functions
+  // Render the table area
   function renderTable() {
     const tableArea = document.getElementById('fu-table-area');
     const cards = tablePile.cards;
@@ -321,12 +403,14 @@ Hooks.once('ready', async () => {
       tableArea.style.display = 'none';
       return;
     }
+    
     // Otherwise make sure it's visible
     tableArea.style.display = 'flex';
 
     // Now render the cards
     const container = document.getElementById('fu-table-cards');
     container.innerHTML = '';
+    
     for (const c of cards) {
       const d = document.createElement('div');
       d.className = 'fu-card';
@@ -345,13 +429,13 @@ Hooks.once('ready', async () => {
       container.appendChild(d);
     }
     
-    // Don't automatically highlight valid sets on table
-    // only highlight on hover (handled by the updateSetInfoBar)
-    
-    // Update set info bar
-    updateSetInfoBar(Array.from(cards), 'table', handleTableSetClick);
+    // Update set info bar for table
+    if (cards.size > 0) {
+      updateSetInfoBar(Array.from(cards), 'table', handleTableSetClick);
+    }
   }
 
+  // Render the hand area
   function renderHand() {
     // Bail out if the hand area isn't in the DOM
     const handCards = document.getElementById('fu-hand-cards');
@@ -374,6 +458,7 @@ Hooks.once('ready', async () => {
       // Add tooltip for hand cards
       d.dataset.tooltip = c.name;
       
+      // Play a single card from hand to table
       d.addEventListener('click', async () => {
         // Validate the card is still in hand before attempting to pass
         if (!hand.cards.has(c.id)) {
@@ -381,6 +466,9 @@ Hooks.once('ready', async () => {
           renderHand();
           return;
         }
+        
+        // Clean up tooltips before moving cards
+        cleanupAllTooltips();
         
         try {
           await hand.pass(tablePile, [c.id], { chatNotification: false });
@@ -408,8 +496,7 @@ Hooks.once('ready', async () => {
       handCards.appendChild(d);
     }
     
-    // Don't highlight valid sets by default in hand
-    // Only update set info bar for hand with click handler
+    // Update set info bar for hand with click handler
     if (hand.cards.size > 0) {
       updateSetInfoBar(Array.from(hand.cards), 'hand', handleHandSetClick);
     }
@@ -428,7 +515,7 @@ Hooks.once('ready', async () => {
     // Create set data
     const setData = {
       type: setType,
-      name: indicator.textContent.split(' ')[0], // Get name without MP cost
+      name: SET_NAMES[setType],
       cardIds: cardIds
     };
     
@@ -446,13 +533,16 @@ Hooks.once('ready', async () => {
     const cardIds = indicator.dataset.cardIds.split(',');
     const playerId = indicator.dataset.playerId;
     
+    // Clean up tooltips before activation
+    cleanupAllTooltips();
+    
     // Get the actual cards
     const cards = cardIds.map(id => tablePile.cards.get(id)).filter(Boolean);
     
     // Create set data
     const setData = {
       type: setType,
-      name: indicator.querySelector('.set-name').textContent,
+      name: SET_NAMES[setType],
       cards: cards,
       cardIds: cardIds,
       values: cards.map(c => getCardValue(c))
@@ -461,26 +551,61 @@ Hooks.once('ready', async () => {
     activateTableSet(setData, playerId);
   }
 
+  // Set up event listeners for tooltips
   document.addEventListener('mouseenter', (e) => {
     const indicator = e.target.closest('.fu-set-indicator');
     if (indicator) {
       const containerType = indicator.closest('#fu-hand-area') ? 'hand' : 'table';
-      // Only show tooltip for hand area, not table
+      
       if (containerType === 'hand') {
-        showSetTooltip(indicator, containerType);
+        // Show tooltip for hand sets
+        const tooltip = showSetTooltip(indicator, containerType);
+        if (tooltip) {
+          activeTooltips.add(tooltip);
+        }
+      } else {
+        // For table sets, just highlight the cards
+        const cardIds = indicator.dataset.cardIds.split(',');
+        const setType = indicator.dataset.setType;
+        
+        cardIds.forEach(cardId => {
+          const cardElement = document.querySelector(`#fu-table-cards [data-card-id="${cardId}"]`);
+          if (cardElement) {
+            cardElement.classList.add('fu-valid-set', `fu-table-${setType}`);
+          }
+        });
       }
     }
   }, true);
 
   document.addEventListener('mouseleave', (e) => {
     const indicator = e.target.closest('.fu-set-indicator');
-    if (indicator && indicator.closest('#fu-hand-area')) {
+    if (indicator) {
       hideSetTooltip(indicator);
+      
+      // Also clear highlights for table sets
+      if (indicator.closest('#fu-table-area')) {
+        clearHighlights();
+      }
     }
   }, true);
 
+  // Handle global events that should clean up tooltips
+  document.addEventListener('click', (e) => {
+    // Don't clean up if clicking on a set indicator or a card
+    if (e.target.closest('.fu-set-indicator') || e.target.closest('.fu-card')) {
+      return;
+    }
+    
+    // Otherwise clean up tooltips
+    cleanupAllTooltips();
+  });
+
   // Hooks & socket
   Hooks.on('updateCards', (cards, change, options, userId) => {
+    // Always clean up tooltips when cards change
+    cleanupAllTooltips();
+    
     // Refresh displays when card stacks change
     if (cards === tablePile || 
         Object.values(playerDecks).some(p => cards === p?.deck || cards === p?.hand || cards === p?.discard)) {
@@ -503,6 +628,9 @@ Hooks.once('ready', async () => {
   game.socket.on(`module.${MODULE_ID}`, async msg => {
     if (msg.senderId === game.userId) return; // Ignore own messages
     
+    // Clean up tooltips on all socket messages
+    cleanupAllTooltips();
+    
     switch (msg.action) {
       case 'cardToTable':
         // Validate that the card actually was moved to the table
@@ -521,7 +649,18 @@ Hooks.once('ready', async () => {
         // Another player played a set
         renderTable();
         break;
+        
+      case 'setActivated':
+        // Another player activated a set and discarded the cards
+        renderTable();
+        break;
     }
+  });
+
+  // Event listener for canvas and scene changes
+  Hooks.on('canvasReady', () => {
+    // Clean up tooltips when the scene changes
+    cleanupAllTooltips();
   });
 
   // Cleanup function for module disable/re-enable
@@ -531,6 +670,9 @@ Hooks.once('ready', async () => {
     btnClean?._cleanup?.();
     btnDraw?._cleanup?.();
     btnReset?._cleanup?.();
+    
+    // Clean up all tooltips
+    cleanupAllTooltips();
     
     // Remove socket listener
     game.socket.off(`module.${MODULE_ID}`);
