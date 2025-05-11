@@ -1,4 +1,4 @@
-/* styles/style.css */
+/* styles/fu-style.css */
 
 /* Table area (fixed at bottom) */
 #fu-table-area {
@@ -17,6 +17,7 @@
   align-items: center;
   justify-content: space-between;
   overflow-x: auto;
+  padding-bottom: 35px; /* Make room for info bar */
 }
 
 /* Hand area as a collapsible drawer with a 30px handle visible */
@@ -32,6 +33,7 @@
   border: 2px solid #333;
   background: rgba(0, 0, 0, 0.45);
   padding: 10px;
+  padding-top: 35px; /* Make room for info bar */
   border-radius: 8px 8px 0 0;
   z-index: 2000;
   display: flex;
@@ -86,11 +88,41 @@
   background-size: cover;
   background-position: center;
   cursor: pointer;
-  transition: transform 0.25s;
+  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+  position: relative;
 }
 .fu-card:hover {
   transform: scale(1.1);
   filter: drop-shadow(0 0 3px #fff7e3);
+}
+
+/* Player color borders */
+.fu-card-owned {
+  border: 3px solid var(--player-color);
+}
+
+/* Valid set highlighting */
+.fu-card.fu-valid-set {
+  box-shadow: 0 0 10px var(--hand-color);
+  border-color: var(--hand-color);
+  border-width: 3px;
+}
+
+/* Different hand types */
+.fu-card.fu-hand-jackpot { --hand-color: #FFD700; }
+.fu-card.fu-hand-magic-flush { --hand-color: #9370DB; }
+.fu-card.fu-hand-blinding-flush { --hand-color: #87CEEB; }
+.fu-card.fu-hand-full-status { --hand-color: #32CD32; }
+.fu-card.fu-hand-triple-support { --hand-color: #00FA9A; }
+.fu-card.fu-hand-double-trouble { --hand-color: #FF6347; }
+.fu-card.fu-hand-magic-pair { --hand-color: #DDA0DD; }
+.fu-card.fu-hand-forbidden-monarch { --hand-color: #8B0000; }
+
+/* Partial sets */
+.fu-card.fu-partial-set {
+  border-style: dashed;
+  opacity: 0.9;
+  border-color: #888;
 }
 
 /* Button styling */
@@ -118,6 +150,102 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* Set info bar styling */
+.fu-set-info-bar {
+  position: absolute;
+  width: calc(100% - 20px);
+  height: 24px;
+  background: rgba(0, 0, 0, 0.6);
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  font-size: 12px;
+  color: #c9c6bd;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  left: 10px;
+}
+
+/* Table info bar - positioned at bottom */
+#fu-table-area .fu-set-info-bar {
+  bottom: 5px;
+  border-radius: 0 0 8px 8px;
+  border-top: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Hand info bar - positioned at top */
+#fu-hand-area .fu-set-info-bar {
+  top: 5px;
+  border-radius: 8px 8px 0 0;
+}
+
+/* Show when sets detected */
+.fu-set-info-bar.has-sets {
+  opacity: 1;
+}
+
+/* Individual set indicators */
+.fu-set-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--set-color);
+  color: var(--set-color);
+  font-weight: 500;
+  font-size: 11px;
+}
+
+/* Minimal style */
+.fu-set-info-bar.minimal {
+  background: none;
+  height: 20px;
+}
+
+.fu-set-info-bar.minimal .fu-set-indicator {
+  border: none;
+  background: none;
+  padding: 0 5px;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+/* Slide style */
+.fu-set-info-bar.slide {
+  opacity: 1;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+
+#fu-table-area:hover .fu-set-info-bar.slide {
+  transform: translateY(0);
+}
+
+#fu-hand-area:hover .fu-set-info-bar.slide {
+  transform: translateY(0);
+}
+
+/* Icons for set types */
+.fu-set-indicator::before {
+  content: '♦';
+  margin-right: 2px;
+}
+
+.fu-set-indicator.jackpot::before { content: '👑'; }
+.fu-set-indicator.magic-flush::before { content: '✨'; }
+.fu-set-indicator.blinding-flush::before { content: '💫'; }
+.fu-set-indicator.full-status::before { content: '🎭'; }
+.fu-set-indicator.triple-support::before { content: '💚'; }
+.fu-set-indicator.double-trouble::before { content: '⚔️'; }
+.fu-set-indicator.magic-pair::before { content: '✌️'; }
+.fu-set-indicator.forbidden-monarch::before { content: '👹'; }
 
 /* Deck Assignment Dialog styles */
 .deck-assignment-form fieldset {
@@ -160,3 +288,90 @@
   background: rgba(0, 0, 0, 0.7);
   border-color: white;
 }
+
+/* Rich tooltips for hand sets */
+.fu-set-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.95);
+  border: 2px solid var(--set-color);
+  border-radius: 8px;
+  padding: 12px;
+  max-width: 350px;
+  z-index: 1000;
+  font-size: 12px;
+  color: #e0e0e0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.tooltip-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 6px;
+}
+
+.set-name {
+  font-weight: bold;
+  color: var(--set-color);
+  font-size: 14px;
+}
+
+.mp-cost {
+  color: #88ccff;
+  font-weight: bold;
+}
+
+.mp-cost.insufficient {
+  color: #ff4444;
+}
+
+.tooltip-requirements,
+.tooltip-cards,
+.tooltip-effect {
+  margin: 6px 0;
+  line-height: 1.4;
+}
+
+.tooltip-requirements strong,
+.tooltip-cards strong,
+.tooltip-effect strong {
+  color: #f0f0f0;
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* Highlight calculated values */
+.tooltip-effect {
+  color: #d0d0d0;
+}
+
+/* Style for calculated values in brackets */
+.tooltip-effect::v-deep(【) {
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.tooltip-warning {
+  color: #ff4444;
+  font-style: italic;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.tooltip-hint {
+  color: #888;
+  font-size: 10px;
+  text-align: center;
+  margin-top: 8px;
+  border-top: 1px solid #333;
+  padding-top: 6px;
+}
+
+/* Damage type colors */
+.damage-fire { color: #ff6b6b; }
+.damage-ice { color: #74c0fc; }
+.damage-earth { color: #8b6914; }
+.damage-air { color: #98fb98; }
+.damage-light { color: #fffacd; }
+.damage-dark { color: #9370db; }

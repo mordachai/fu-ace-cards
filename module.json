@@ -1,8 +1,8 @@
 {
   "id": "fu-ace-cards",
   "title": "Fabula Ultima: Ace of Cards",
-  "description": "Basic draw, hand, and shared table areas for the Fabula Ultima Ace of Cards class.",
-  "version": "0.1.0",
+  "description": "Draw, hand, table areas for Fabula Ultima Ace of Cards class with visual enhancements for set detection.",
+  "version": "0.2.0",
   "license": "MIT",
   "compatibility": {
     "minimum": "12",
@@ -16,7 +16,10 @@
   ],
   "esmodules": [
     "scripts/main.js",
-    "scripts/deck-manager.js"
+    "scripts/deck-manager.js",
+    "scripts/settings.js",
+    "scripts/set-detector.js",
+    "scripts/ui-enhancements.js"
   ],
   "styles": [
     "styles/fu-style.css"

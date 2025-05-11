@@ -1,15 +1,29 @@
 // scripts/main.js
 import { DeckManager } from './deck-manager.js';
-
-const MODULE_ID = 'fu-ace-cards';
+import { MODULE_ID, registerSettings } from './settings.js';
+import { 
+  clearHighlights,
+  getCardValue,
+  getSetEffectDescription,
+  getPlayerColor, 
+  applyPlayerColor, 
+  createCardTooltip, 
+  updateSetInfoBar, 
+  highlightValidSets,
+  createSetTooltip,
+  showSetTooltip,
+  hideSetTooltip
+} from './ui-enhancements.js';
 
 // Player deck tracking
 let playerDecks = {};
 let tablePile = null;
+let currentTooltip = null;
 
 Hooks.once('init', () => {
   console.log(`${MODULE_ID} | Initializing module`);
   DeckManager.init();
+  registerSettings();
   
   // Register Handlebars helper for equality check
   Handlebars.registerHelper('eq', function(a, b) {
@@ -19,8 +33,7 @@ Hooks.once('init', () => {
 
 Hooks.once('ready', async () => {
   const user = game.user;
-  // Remove the character check - all users should see the table
-
+  
   // Find the shared table pile
   tablePile = game.cards.getName('Table');
   if (!tablePile) {
@@ -179,6 +192,110 @@ Hooks.once('ready', async () => {
   if (btnDraw) btnDraw._cleanup = () => btnDraw.removeEventListener('click', drawCard);
   if (btnReset) btnReset._cleanup = () => btnReset.removeEventListener('click', resetHand);
 
+  // Handle playing a set from hand to table
+  async function playSetToTable(setData, indicator) {
+    if (!piles?.hand) return;
+    
+    // Hide tooltip immediately when clicking
+    hideSetTooltip(indicator);
+    clearHighlights(); // Clear highlights when playing
+    
+    // Double-check we can still afford it
+    const mpCost = parseInt(indicator.dataset.mpCost);
+    const actor = game.user.character;
+    
+    if (actor) {
+      const currentMP = actor.system.resources?.mp?.value || 0;
+      if (currentMP < mpCost) {
+        ui.notifications.warn(`Not enough MP. Need ${mpCost}, have ${currentMP}`);
+        return;
+      }
+    }
+    
+    const cardIds = indicator.dataset.cardIds.split(',');
+    
+    try {
+      // Play all cards in the set to table
+      for (const cardId of cardIds) {
+        if (!piles.hand.cards.has(cardId)) {
+          throw new Error(`Card ${cardId} no longer in hand`);
+        }
+        
+        await piles.hand.pass(tablePile, [cardId], { chatNotification: false });
+        
+        // Set owner flag on the card AFTER successful pass
+        const tableCard = tablePile.cards.get(cardId);
+        if (tableCard) {
+          await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
+          await tableCard.setFlag(MODULE_ID, 'setType', setData.type);
+        }
+      }
+      
+      // Emit socket message to notify other players
+      game.socket.emit(`module.${MODULE_ID}`, {
+        action: 'setPlayed',
+        setType: setData.type,
+        cardIds: cardIds,
+        playerId: game.userId
+      });
+      
+      renderHand();
+      renderTable();
+      ui.notifications.info(`Played ${setData.name} to table (${mpCost} MP)`);
+      
+    } catch (error) {
+      ui.notifications.error(`Failed to play set: ${error.message}`);
+      renderHand();
+    }
+  }
+
+  // Handle clicking a set on the table
+  async function activateTableSet(setData, playerId) {
+    // Only the owner can activate their sets
+    if (playerId !== game.userId) {
+      ui.notifications.warn("You can only activate your own sets");
+      return;
+    }
+    
+    const mpCost = setData.cards.length * 5;
+    
+    // Send to chat with full details
+    const chatData = {
+      user: game.userId,
+      content: await createSetActivationMessage(setData, playerId, mpCost),
+      type: CONST.CHAT_MESSAGE_TYPES.OTHER
+    };
+    
+    ChatMessage.create(chatData);
+    
+    // Future: Actually deduct MP and apply effects
+    // await deductMP(mpCost);
+    // await applySetEffects(setData);
+  }
+
+  // Create chat message for set activation
+  async function createSetActivationMessage(setData, playerId, mpCost) {
+    const description = getSetEffectDescription(setData);
+    const playerName = game.users.get(playerId).name;
+    
+    return `
+      <div class="fu-set-activation">
+        <div class="set-header">
+          <strong>${playerName}</strong> activates <span class="set-name">${setData.name}</span>
+        </div>
+        <div class="set-cards">
+          Cards: ${description.cards}
+        </div>
+        <div class="set-effect">
+          <strong>Effect:</strong> ${description.effect}
+        </div>
+        <div class="set-cost">
+          <strong>MP Cost:</strong> ${mpCost}
+        </div>
+      </div>
+    `;
+  }
+
   // Render functions
   function renderTable() {
     const tableArea = document.getElementById('fu-table-area');
@@ -199,10 +316,27 @@ Hooks.once('ready', async () => {
       const d = document.createElement('div');
       d.className = 'fu-card';
       d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
+      d.dataset.cardId = c.id;
+      
+      // Apply player color
+      applyPlayerColor(d, c);
+      
+      // Add tooltip
+      const tooltip = createCardTooltip(c);
+      if (tooltip) {
+        d.dataset.tooltip = tooltip;
+      }
+      
       container.appendChild(d);
     }
+    
+    // Don't automatically highlight valid sets on table
+    // only highlight on hover (handled by the updateSetInfoBar)
+    
+    // Update set info bar
+    updateSetInfoBar(Array.from(cards), 'table', handleTableSetClick);
   }
-  
+
   function renderHand() {
     // Bail out if the hand area isn't in the DOM
     const handCards = document.getElementById('fu-hand-cards');
@@ -220,6 +354,11 @@ Hooks.once('ready', async () => {
       const d = document.createElement('div');
       d.className = 'fu-card';
       d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
+      d.dataset.cardId = c.id;
+      
+      // Add tooltip for hand cards
+      d.dataset.tooltip = c.name;
+      
       d.addEventListener('click', async () => {
         // Validate the card is still in hand before attempting to pass
         if (!hand.cards.has(c.id)) {
@@ -231,8 +370,11 @@ Hooks.once('ready', async () => {
         try {
           await hand.pass(tablePile, [c.id], { chatNotification: false });
           
-          // Set owner flag on the card
-          await tablePile.cards.get(c.id).setFlag(MODULE_ID, 'ownerId', game.userId);
+          // Set owner flag on the card AFTER successful pass
+          const tableCard = tablePile.cards.get(c.id);
+          if (tableCard) {
+            await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
+          }
           
           // Only emit socket if pass was successful
           game.socket.emit(`module.${MODULE_ID}`, {
@@ -250,7 +392,75 @@ Hooks.once('ready', async () => {
       });
       handCards.appendChild(d);
     }
+    
+    // Don't highlight valid sets by default in hand
+    // Only update set info bar for hand with click handler
+    if (hand.cards.size > 0) {
+      updateSetInfoBar(Array.from(hand.cards), 'hand', handleHandSetClick);
+    }
   }
+
+  // Handle clicking a set indicator in hand
+  function handleHandSetClick(indicator) {
+    // Only handle clicks on available sets
+    if (!indicator.classList.contains('available')) {
+      return;
+    }
+    
+    const setType = indicator.dataset.setType;
+    const cardIds = indicator.dataset.cardIds.split(',');
+    
+    // Create set data
+    const setData = {
+      type: setType,
+      name: indicator.textContent.split(' ')[0], // Get name without MP cost
+      cardIds: cardIds
+    };
+    
+    playSetToTable(setData, indicator);
+  }
+
+  // Handle clicking a set indicator on table
+  function handleTableSetClick(indicator) {
+    // Only handle clicks on own sets
+    if (!indicator.classList.contains('own-set')) {
+      return;
+    }
+    
+    const setType = indicator.dataset.setType;
+    const cardIds = indicator.dataset.cardIds.split(',');
+    const playerId = indicator.dataset.playerId;
+    
+    // Get the actual cards
+    const cards = cardIds.map(id => tablePile.cards.get(id)).filter(Boolean);
+    
+    // Create set data
+    const setData = {
+      type: setType,
+      name: indicator.querySelector('.set-name').textContent,
+      cards: cards,
+      cardIds: cardIds,
+      values: cards.map(c => getCardValue(c))
+    };
+    
+    activateTableSet(setData, playerId);
+  }
+
+  // Set up event delegation for tooltips
+  document.addEventListener('mouseenter', (e) => {
+    const indicator = e.target.closest('.fu-set-indicator');
+    if (indicator) {
+      const containerType = indicator.closest('#fu-hand-area') ? 'hand' : 'table';
+      showSetTooltip(indicator, containerType);
+    }
+  }, true);
+
+  document.addEventListener('mouseleave', (e) => {
+    const indicator = e.target.closest('.fu-set-indicator');
+    if (indicator && indicator.closest('#fu-hand-area')) {
+      hideSetTooltip(indicator);
+    }
+  }, true);
 
   // Hooks & socket
   Hooks.on('updateCards', (cards, change, options, userId) => {
@@ -259,6 +469,16 @@ Hooks.once('ready', async () => {
         Object.values(playerDecks).some(p => cards === p?.deck || cards === p?.hand || cards === p?.discard)) {
       renderTable();
       if (document.getElementById('fu-hand-cards')) renderHand();
+    }
+  });
+
+  // Hook into actor updates to refresh when MP changes
+  Hooks.on('updateActor', (actor, changes) => {
+    // If MP changed and this is our character
+    if (actor.id === game.user.character?.id && 
+        changes.system?.resources?.mp) {
+      // Re-render hand to update set availability
+      renderHand();
     }
   });
   
@@ -277,6 +497,11 @@ Hooks.once('ready', async () => {
         
       case 'cleanTable':
         // Another player cleaned the table, update our view
+        renderTable();
+        break;
+        
+      case 'setPlayed':
+        // Another player played a set
         renderTable();
         break;
     }
