@@ -201,6 +201,7 @@
   color: var(--set-color);
   font-weight: 500;
   font-size: 11px;
+  pointer-events: auto;
 }
 
 /* Minimal style */

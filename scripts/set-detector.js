@@ -14,7 +14,7 @@ export const SET_NAMES = {
 };
 
 // Parse card value from card data
-function getCardValue(card) {
+export function getCardValue(card) {
   // Try to get value from card data, flags, or name
   return card.value || card.getFlag('fu-ace-cards', 'value') || 
          parseInt(card.name.match(/\d+/)?.[0]) || 0;

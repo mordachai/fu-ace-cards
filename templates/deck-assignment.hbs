@@ -12,7 +12,7 @@
       <select id="{{id}}-deck" name="{{id}}-deck">
         <option value="">-- Select Deck --</option>
         {{#each ../deckOptions}}
-          <option value="{{this.id}}" {{#if (eq this.id ../deckId)}}selected{{/if}}>{{this.name}}</option>
+          <option value="{{this.id}}" {{#if (eq this.id ../../deckId)}}selected{{/if}}>{{this.name}}</option>
         {{/each}}
       </select>
     </div>
@@ -22,7 +22,7 @@
       <select id="{{id}}-hand" name="{{id}}-hand">
         <option value="">-- Select Hand --</option>
         {{#each ../handOptions}}
-          <option value="{{this.id}}" {{#if (eq this.id ../handId)}}selected{{/if}}>{{this.name}}</option>
+          <option value="{{this.id}}" {{#if (eq this.id ../../handId)}}selected{{/if}}>{{this.name}}</option>
         {{/each}}
       </select>
     </div>
@@ -32,7 +32,7 @@
       <select id="{{id}}-discard" name="{{id}}-discard">
         <option value="">-- Select Pile --</option>
         {{#each ../pileOptions}}
-          <option value="{{this.id}}" {{#if (eq this.id ../discardId)}}selected{{/if}}>{{this.name}}</option>
+          <option value="{{this.id}}" {{#if (eq this.id ../../discardId)}}selected{{/if}}>{{this.name}}</option>
         {{/each}}
       </select>
     </div>

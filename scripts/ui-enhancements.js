@@ -1,6 +1,8 @@
 // scripts/ui-enhancements.js
 import { MODULE_ID, SETTINGS_KEYS } from './settings.js';
-import { detectFabulaUltimaSets, SET_NAMES, getSetColor } from './set-detector.js';
+import { detectFabulaUltimaSets, SET_NAMES, getSetColor, getCardValue } from './set-detector.js';
+import { getCurrentPlayerPiles, getTablePile } from './main.js';
+import { DeckManager } from './deck-manager.js';
 
 // Player color cache
 const playerColorCache = new Map();
@@ -146,26 +148,29 @@ function updateTableSetDisplay(cards, infoBar, clickHandler) {
   // Detect sets for each player
   const setIndicators = [];
   
-  for (const [playerId, playerCards] of Object.entries(cardsByPlayer)) {
+    for (const [playerId, playerCards] of Object.entries(cardsByPlayer)) {
     const sets = detectFabulaUltimaSets(playerCards);
-    const playerName = game.users.get(playerId)?.name || 'Unknown';
+    // Get character name instead of player name
+    const user = game.users.get(playerId);
+    const character = user?.character;
+    const displayName = character?.name || user?.name || 'Unknown';
     
     sets.forEach(set => {
-      const isOwnSet = playerId === game.userId;
-      const className = `fu-set-indicator ${set.type} ${isOwnSet ? 'own-set' : 'other-set'}`;
-      
-      setIndicators.push(`
+        const isOwnSet = playerId === game.userId;
+        const className = `fu-set-indicator ${set.type} ${isOwnSet ? 'own-set' : 'other-set'}`;
+        
+        setIndicators.push(`
         <div class="${className}" 
-             style="--set-color: ${getSetColor(set.type)}"
-             data-set-type="${set.type}"
-             data-card-ids="${set.cardIds.join(',')}"
-             data-player-id="${playerId}">
-          <span class="set-name">${SET_NAMES[set.type]}</span>
-          <span class="player-name">${playerName}</span>
+            style="--set-color: ${getSetColor(set.type)}"
+            data-set-type="${set.type}"
+            data-card-ids="${set.cardIds.join(',')}"
+            data-player-id="${playerId}">
+            <span class="set-name">${SET_NAMES[set.type]}</span>
+            <span class="player-name">${displayName}</span>
         </div>
-      `);
+        `);
     });
-  }
+    }
   
   if (setIndicators.length === 0) {
     infoBar.classList.remove('has-sets');
@@ -221,7 +226,7 @@ export function clearHighlights() {
   });
 }
 
-// Show tooltip on hover - Better version with context
+// Show tooltip on hover
 export function showSetTooltip(indicator, containerType = null) {
   // Remove any existing tooltips
   document.querySelectorAll('.fu-set-tooltip').forEach(t => t.remove());
@@ -237,22 +242,30 @@ export function showSetTooltip(indicator, containerType = null) {
   let cards = [];
   
   if (containerType === 'hand') {
-    // For hand, we need to find the player's hand pile
-    // This assumes you have access to the playerDecks object from main.js
-    // You might need to expose it globally or pass it differently
-    const userId = game.userId;
-    const playerHand = game.cards.find(c => 
-      (c.type === "hand" || c.type === "pile") && 
-      c.name.includes(game.users.get(userId).name) && 
-      c.name.toLowerCase().includes('hand')
-    );
+    // Get current player's piles
+    const piles = getCurrentPlayerPiles();
+    if (piles?.hand) {
+      cards = cardIds.map(id => piles.hand.cards.get(id)).filter(Boolean);
+    } else {
+      // Fallback: Try to find hand using DeckManager
+      const deckData = DeckManager.getPlayerDecks(game.userId);
+      if (deckData?.handId) {
+        const handPile = game.cards.get(deckData.handId);
+        if (handPile) {
+          cards = cardIds.map(id => handPile.cards.get(id)).filter(Boolean);
+        }
+      }
+    }
     
-    if (playerHand) {
-      cards = cardIds.map(id => playerHand.cards.get(id)).filter(Boolean);
+    // Debug logging
+    if (cards.length === 0) {
+      console.warn('Could not find hand cards. Available hands:', 
+        game.cards.filter(c => c.type === "hand").map(c => ({ id: c.id, name: c.name }))
+      );
     }
   } else if (containerType === 'table') {
     // For table, get cards from the table pile
-    const tablePile = game.cards.getName('Table');
+    const tablePile = getTablePile();
     if (tablePile) {
       cards = cardIds.map(id => tablePile.cards.get(id)).filter(Boolean);
     }
@@ -414,13 +427,6 @@ export function createSetTooltip(setData) {
   `;
   
   return tooltip;
-}
-
-// Get card value from card data
-export function getCardValue(card) {
-  // Try to get value from card data, flags, or name
-  return card.value || card.getFlag(MODULE_ID, 'value') || 
-         parseInt(card.name.match(/\d+/)?.[0]) || 0;
 }
 
 // Get detailed effect description with calculated values

@@ -3,7 +3,6 @@ import { DeckManager } from './deck-manager.js';
 import { MODULE_ID, registerSettings } from './settings.js';
 import { 
   clearHighlights,
-  getCardValue,
   getSetEffectDescription,
   getPlayerColor, 
   applyPlayerColor, 
@@ -14,11 +13,27 @@ import {
   showSetTooltip,
   hideSetTooltip
 } from './ui-enhancements.js';
+import { getCardValue } from './set-detector.js';
 
 // Player deck tracking
 let playerDecks = {};
 let tablePile = null;
 let currentTooltip = null;
+
+// Export function to get current player's piles
+export function getCurrentPlayerPiles() {
+  return playerDecks[game.userId];
+}
+
+// Export function to get any player's piles by ID
+export function getPlayerPiles(userId) {
+  return playerDecks[userId];
+}
+
+// Export function to get table pile
+export function getTablePile() {
+  return tablePile;
+}
 
 Hooks.once('init', () => {
   console.log(`${MODULE_ID} | Initializing module`);
@@ -446,12 +461,14 @@ Hooks.once('ready', async () => {
     activateTableSet(setData, playerId);
   }
 
-  // Set up event delegation for tooltips
   document.addEventListener('mouseenter', (e) => {
     const indicator = e.target.closest('.fu-set-indicator');
     if (indicator) {
       const containerType = indicator.closest('#fu-hand-area') ? 'hand' : 'table';
-      showSetTooltip(indicator, containerType);
+      // Only show tooltip for hand area, not table
+      if (containerType === 'hand') {
+        showSetTooltip(indicator, containerType);
+      }
     }
   }, true);
 
