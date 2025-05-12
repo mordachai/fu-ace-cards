@@ -26,12 +26,62 @@
     </details>
   </div>
   
+  {{#if hasDamage}}
+  <div class="damage-check">
+    <header class="title-desc chat-header flexrow desc">
+      <h2 style="flex-grow:4">Damage</h2>
+      <section class="targets" style="align-items:end">
+        <div class="fu-tags flexrow gap-5">
+          <a data-action="selectDamageCustomizer">
+            <span class="fu-tag button flex-group-center gap-5" data-tooltip="Damage Customizer"><i class="icon fas fa-gear"></i></span>
+          </a>
+        </div>
+      </section>
+    </header>
+    
+    <div class="detail-desc flex-group-center flexrow desc">
+      <a>
+        <label class="damageType {{damageType}} grid grid-3col">
+          <div class="startcap"></div>
+          <div>{{damageValue}}</div>
+          <div class="endcap" data-tooltip="{{damageTypeLabel}}">
+            <i class="fua fu-{{damageType}}"></i>
+          </div>
+        </label>
+      </a>
+    </div>
+    
+    <div class="toggle-section accuracy-check-results">
+      <div class="flexrow gap-5">
+        <div class="detail-desc flex-group-center grid grid-2col desc flex2">
+          <div>
+            <label class="title">HR</label>
+            <label class="detail">{{highRoll}}</label>
+          </div>
+          <div data-tooltip="Base Damage: {{baseDamage}}">
+            <label class="title">MOD</label>
+            <label class="detail">{{baseDamage}}</label>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {{/if}}
+  
   <div class="chat-desc">
     <details open>
       <summary class="collapsible-description align-center">Effect</summary>
       <p>{{{effect}}}</p>
     </details>
   </div>
+  
+  {{#if hasDamage}}
+  <div class="fu-tags flexrow gap-5">
+    <a data-action="applyDamageSelected" data-damage-type="{{damageType}}" data-damage-value="{{damageValue}}" data-set-type="{{setType}}" data-tooltip="Click to apply damage to targeted tokens.<br />[Ctrl + Click] to Open Damage Customizer<br />[Shift + Click] to ignore Resistances.<br />[Ctrl + Shift] + Click to ignore Resistances and Immunities.">
+      <span class="fu-tag button flex-group-center gap-5" style="width:100%;white-space:nowrap">Apply to targeted tokens<i class="icon fas fa-heart-crack"></i></span>
+    </a>
+  </div>
+  {{/if}}
   
   <div class="fu-tags flexrow gap-5">
     <a data-action="applyResourceLoss" data-resource="mp" data-amount="{{mpCost}}" data-actor="{{actorId}}" data-tooltip="Click to spend MP">

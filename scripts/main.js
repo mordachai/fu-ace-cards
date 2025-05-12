@@ -65,6 +65,11 @@ Hooks.once('init', () => {
   Handlebars.registerHelper('eq', function(a, b) {
     return a === b;
   });
+  
+  // Add capitalize helper for string formatting
+  String.prototype.capitalize = function() {
+    return this.charAt(0).toUpperCase() + this.slice(1);
+  };
 });
 
 Hooks.once('ready', async () => {
@@ -369,6 +374,9 @@ Hooks.once('ready', async () => {
     const displayName = characterName || player.name;
     const actorId = character?.id || "";
     
+    // Calculate damage if this set type deals damage
+    const damageData = calculateDamageForSet(setData);
+    
     // Prepare data for template
     const templateData = {
       setType: setData.type,
@@ -382,11 +390,103 @@ Hooks.once('ready', async () => {
         id: card.id,
         name: card.name,
         img: card.faces[card.face ?? 0]?.img
-      }))
+      })),
+      hasDamage: damageData !== null,
+      damageValue: damageData?.value || 0,
+      damageType: damageData?.type || '',
+      damageTypeLabel: damageData?.type ? game.i18n.localize(`FU.Damage${damageData.type.capitalize()}`) : '',
+      highRoll: damageData?.highRoll || 0,
+      baseDamage: damageData?.baseDamage || 0
     };
     
     // Render the template
     return await renderTemplate(`modules/${MODULE_ID}/templates/set-activation.hbs`, templateData);
+  }
+  
+  // Calculate damage value and type for a given set
+  function calculateDamageForSet(setData) {
+    if (!setData || !setData.values || !setData.cards) return null;
+    
+    // Get total value of all cards
+    const totalValue = setData.values.reduce((sum, val) => sum + val, 0);
+    const highestValue = Math.max(...setData.values);
+    
+    // Map suits to damage types
+    const suitToDamageType = {
+      'hearts': 'fire',
+      'heart': 'fire',
+      'diamonds': 'air',
+      'diamond': 'air',
+      'clubs': 'earth',
+      'club': 'earth',
+      'spades': 'ice',
+      'spade': 'ice'
+    };
+    
+    switch (setData.type) {
+      case 'magic-flush': {
+        // 4 cards of consecutive values and of the same suit
+        // Damage: 25 + total value of cards, type matches the suit
+        const firstCard = setData.cards[0];
+        const suit = getCardSuit(firstCard);
+        const damageType = suitToDamageType[suit.toLowerCase()] || 'physical';
+        
+        return {
+          value: 25 + totalValue,
+          type: damageType,
+          highRoll: totalValue,
+          baseDamage: 25
+        };
+      }
+      case 'blinding-flush': {
+        // 4 cards of consecutive values
+        // Damage: 15 + total value, light if highest is even, dark if odd
+        const damageType = highestValue % 2 === 0 ? 'light' : 'dark';
+        
+        return {
+          value: 15 + totalValue,
+          type: damageType,
+          highRoll: totalValue,
+          baseDamage: 15
+        };
+      }
+      case 'double-trouble': {
+        // 2 cards of same value + 2 cards of same value
+        // Damage: 10 + highest value among cards
+        const firstCard = setData.cards[0];
+        const suit = getCardSuit(firstCard);
+        const damageType = suitToDamageType[suit.toLowerCase()] || 'physical';
+        
+        return {
+          value: 10 + highestValue,
+          type: damageType,
+          highRoll: highestValue,
+          baseDamage: 10
+        };
+      }
+      case 'forbidden-monarch': {
+        // 4 cards of same value + 1 joker
+        // Damage: 777, light if common value is even, dark if odd
+        const commonValue = setData.value || setData.values[0];
+        const damageType = commonValue % 2 === 0 ? 'light' : 'dark';
+        
+        return {
+          value: 777,
+          type: damageType,
+          highRoll: 0,
+          baseDamage: 777
+        };
+      }
+      default:
+        return null;
+    }
+  }
+  
+  // Get card suit from card data
+  function getCardSuit(card) {
+    // Try to get suit from card data, flags, or name
+    return card.suit || card.getFlag('fu-ace-cards', 'suit') || 
+           card.name.toLowerCase().match(/(clubs?|diamonds?|hearts?|spades?)/)?.[0] || '';
   }
 
   // Render the table area
@@ -597,8 +697,9 @@ Hooks.once('ready', async () => {
     cleanupAllTooltips();
   });
 
-  // Handle the MP spending button in chat messages
+  // Handle the MP spending and damage application buttons in chat messages
   Hooks.on('renderChatMessage', (message, html) => {
+    // Handle MP spending button
     html.find('[data-action="applyResourceLoss"]').click(async (event) => {
       event.preventDefault();
       const button = event.currentTarget;
@@ -622,6 +723,74 @@ Hooks.once('ready', async () => {
           ui.notifications.info(`${actor.name} spent ${amount} MP`);
         }
       }
+    });
+    
+    // Handle damage application button
+    html.find('[data-action="applyDamageSelected"]').click(async (event) => {
+      event.preventDefault();
+      const button = event.currentTarget;
+      const damageType = button.dataset.damageType;
+      const damageValue = parseInt(button.dataset.damageValue);
+      const setType = button.dataset.setType;
+      
+      // Get targeted tokens (for enemies) instead of selected tokens
+      const targetedTokens = Array.from(game.user.targets);
+      if (targetedTokens.length === 0) {
+        ui.notifications.warn("No targets selected. Use the targeting tool to target enemies.");
+        return;
+      }
+      
+      // Determine if ignoring resistances/immunities based on ctrl/shift keys
+      const ignoreResistances = event.shiftKey;
+      const ignoreImmunities = event.ctrlKey && event.shiftKey;
+      const openCustomizer = event.ctrlKey && !event.shiftKey;
+      
+      // Get traits based on the set type
+      const traits = [];
+      if (ignoreResistances) traits.push("ignore-resistances");
+      if (ignoreImmunities) traits.push("ignore-immunities");
+      
+      // Add set-specific traits
+      if (setType === 'forbidden-monarch') {
+        traits.push("ignore-resistances");
+        traits.push("ignore-immunities");
+      }
+      
+      if (openCustomizer) {
+        // Here you would open the damage customizer
+        // This requires integrating with the system's damage customizer
+        ui.notifications.info("Damage customization would open here");
+        return;
+      }
+      
+      // Apply damage to each targeted token
+      for (const token of targetedTokens) {
+        const actor = token.actor;
+        if (!actor) continue;
+        
+        // Apply damage directly to the actor
+        const currentHP = actor.system.resources.hp.value;
+        const newHP = Math.max(0, currentHP - damageValue);
+        
+        await actor.update({
+          "system.resources.hp.value": newHP
+        });
+        
+        // Show the damage amount as floaty text
+        const gridSize = canvas.grid.size;
+        const text = `-${damageValue} ${damageType.toUpperCase()}`;
+        canvas.interface?.createScrollingText(
+          { x: token.center.x, y: token.center.y - gridSize/2 },
+          text,
+          { fill: "red", fontSize: 24, stroke: 0x000000, strokeThickness: 4 }
+        );
+      }
+      
+      // Disable the button after applying damage
+      button.classList.add("disabled");
+      $(button).find("span").text(`Damage Applied (${damageValue})`);
+      
+      ui.notifications.info(`Applied ${damageValue} ${damageType} damage to ${targetedTokens.length} target(s)`);
     });
   });
 
