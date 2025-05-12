@@ -311,8 +311,12 @@ Hooks.once('ready', async () => {
     const mpCost = setData.cards.length * 5;
     
     // Create chat message with card images
+    const player = game.users.get(playerId);
+    const character = player.character;
+    
     const chatData = {
       user: game.userId,
+      speaker: ChatMessage.getSpeaker({ actor: character }),
       content: await createSetActivationMessage(setData, playerId, mpCost),
       type: CONST.CHAT_MESSAGE_TYPES.OTHER
     };
@@ -359,15 +363,18 @@ Hooks.once('ready', async () => {
   // Create chat message for set activation - using template
   async function createSetActivationMessage(setData, playerId, mpCost) {
     const description = getSetEffectDescription(setData);
-    const playerName = game.users.get(playerId).name;
-    const characterName = game.users.get(playerId).character?.name;
-    const displayName = characterName || playerName;
+    const player = game.users.get(playerId);
+    const character = player.character;
+    const characterName = character?.name;
+    const displayName = characterName || player.name;
+    const actorId = character?.id || "";
     
     // Prepare data for template
     const templateData = {
       setType: setData.type,
       setName: SET_NAMES[setData.type],
       playerName: displayName,
+      actorId: actorId,
       mpCost: mpCost,
       effect: description.effect,
       comboDescription: description.base,
@@ -588,6 +595,34 @@ Hooks.once('ready', async () => {
     
     // Otherwise clean up tooltips
     cleanupAllTooltips();
+  });
+
+  // Handle the MP spending button in chat messages
+  Hooks.on('renderChatMessage', (message, html) => {
+    html.find('[data-action="applyResourceLoss"]').click(async (event) => {
+      event.preventDefault();
+      const button = event.currentTarget;
+      const actorId = button.dataset.actor;
+      const amount = parseInt(button.dataset.amount);
+      const resource = button.dataset.resource;
+      
+      if (actorId && amount && resource) {
+        const actor = game.actors.get(actorId);
+        if (actor) {
+          // Modify the actor's MP
+          await actor.update({
+            "system.resources.mp.value": Math.max(0, actor.system.resources.mp.value - amount)
+          });
+
+          // Disable the button after spending
+          button.classList.add("disabled");
+          $(button).find("span").text(`MP Spent (${amount})`);
+          
+          // Show notification
+          ui.notifications.info(`${actor.name} spent ${amount} MP`);
+        }
+      }
+    });
   });
 
   // Hooks & socket
