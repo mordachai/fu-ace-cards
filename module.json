@@ -15,11 +15,12 @@
     }
   ],
   "esmodules": [
-    "scripts/main.js",
-    "scripts/deck-manager.js",
-    "scripts/settings.js",
-    "scripts/set-detector.js",
-    "scripts/ui-enhancements.js"
+  "scripts/main.js",
+  "scripts/deck-manager.js",
+  "scripts/settings.js",
+  "scripts/set-detector.js",
+  "scripts/ui-enhancements.js",
+  "scripts/damage-integration.js"
   ],
   "styles": [
     "styles/fu-style.css"

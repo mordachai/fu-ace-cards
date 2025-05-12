@@ -1,4 +1,5 @@
 // scripts/main.js
+import { DamageIntegration } from './damage-integration.js';
 import { DeckManager } from './deck-manager.js';
 import { MODULE_ID, registerSettings } from './settings.js';
 import { 
@@ -14,6 +15,7 @@ import {
   hideSetTooltip
 } from './ui-enhancements.js';
 import { getCardValue, SET_NAMES } from './set-detector.js';
+
 
 // Player deck tracking
 let playerDecks = {};
@@ -648,31 +650,52 @@ Hooks.once('ready', async () => {
   }
 
   // Set up event listeners for tooltips
-  document.addEventListener('mouseenter', (e) => {
-    const indicator = e.target.closest('.fu-set-indicator');
-    if (indicator) {
-      const containerType = indicator.closest('#fu-hand-area') ? 'hand' : 'table';
-      
-      if (containerType === 'hand') {
-        // Show tooltip for hand sets
-        const tooltip = showSetTooltip(indicator, containerType);
-        if (tooltip) {
-          activeTooltips.add(tooltip);
+document.addEventListener('mouseenter', function(e) {
+    // Find the closest .fu-set-indicator ancestor
+    let indicator = null;
+    let element = e.target;
+    
+    // Manual traversal up the DOM tree
+    while (element && !indicator) {
+        if (element.classList && element.classList.contains('fu-set-indicator')) {
+            indicator = element;
         }
-      } else {
-        // For table sets, just highlight the cards
-        const cardIds = indicator.dataset.cardIds.split(',');
-        const setType = indicator.dataset.setType;
-        
-        cardIds.forEach(cardId => {
-          const cardElement = document.querySelector(`#fu-table-cards [data-card-id="${cardId}"]`);
-          if (cardElement) {
-            cardElement.classList.add('fu-valid-set', `fu-table-${setType}`);
-          }
-        });
-      }
+        element = element.parentElement;
     }
-  }, true);
+    
+    if (indicator) {
+        let containerType = null;
+        // Check if it's in the hand area
+        let parent = indicator;
+        while (parent && !containerType) {
+            if (parent.id === 'fu-hand-area') {
+                containerType = 'hand';
+            } else if (parent.id === 'fu-table-area') {
+                containerType = 'table';
+            }
+            parent = parent.parentElement;
+        }
+        
+        if (containerType === 'hand') {
+            // Show tooltip for hand sets
+            const tooltip = showSetTooltip(indicator, containerType);
+            if (tooltip) {
+                activeTooltips.add(tooltip);
+            }
+        } else if (containerType === 'table') {
+            // For table sets, just highlight the cards
+            const cardIds = indicator.dataset.cardIds.split(',');
+            const setType = indicator.dataset.setType;
+            
+            cardIds.forEach(cardId => {
+                const cardElement = document.querySelector(`#fu-table-cards [data-card-id="${cardId}"]`);
+                if (cardElement) {
+                    cardElement.classList.add('fu-valid-set', `fu-table-${setType}`);
+                }
+            });
+        }
+    }
+}, true);
 
   document.addEventListener('mouseleave', (e) => {
     const indicator = e.target.closest('.fu-set-indicator');
@@ -727,70 +750,75 @@ Hooks.once('ready', async () => {
     
     // Handle damage application button
     html.find('[data-action="applyDamageSelected"]').click(async (event) => {
-      event.preventDefault();
-      const button = event.currentTarget;
-      const damageType = button.dataset.damageType;
-      const damageValue = parseInt(button.dataset.damageValue);
-      const setType = button.dataset.setType;
-      
-      // Get targeted tokens (for enemies) instead of selected tokens
-      const targetedTokens = Array.from(game.user.targets);
-      if (targetedTokens.length === 0) {
-        ui.notifications.warn("No targets selected. Use the targeting tool to target enemies.");
-        return;
-      }
-      
-      // Determine if ignoring resistances/immunities based on ctrl/shift keys
-      const ignoreResistances = event.shiftKey;
-      const ignoreImmunities = event.ctrlKey && event.shiftKey;
-      const openCustomizer = event.ctrlKey && !event.shiftKey;
-      
-      // Get traits based on the set type
-      const traits = [];
-      if (ignoreResistances) traits.push("ignore-resistances");
-      if (ignoreImmunities) traits.push("ignore-immunities");
-      
-      // Add set-specific traits
-      if (setType === 'forbidden-monarch') {
-        traits.push("ignore-resistances");
-        traits.push("ignore-immunities");
-      }
-      
-      if (openCustomizer) {
-        // Here you would open the damage customizer
-        // This requires integrating with the system's damage customizer
-        ui.notifications.info("Damage customization would open here");
-        return;
-      }
-      
-      // Apply damage to each targeted token
-      for (const token of targetedTokens) {
-        const actor = token.actor;
-        if (!actor) continue;
+        event.preventDefault();
+        const button = event.currentTarget;
+        const damageType = button.dataset.damageType;
+        const damageValue = parseInt(button.dataset.damageValue);
+        const setType = button.dataset.setType;
+        const playerId = button.dataset.playerId;
         
-        // Apply damage directly to the actor
-        const currentHP = actor.system.resources.hp.value;
-        const newHP = Math.max(0, currentHP - damageValue);
+        // Get targeted tokens (for enemies)
+        const targetedTokens = Array.from(game.user.targets);
+        if (targetedTokens.length === 0) {
+            ui.notifications.warn("No targets selected. Use the targeting tool to target enemies.");
+            return;
+        }
         
-        await actor.update({
-          "system.resources.hp.value": newHP
-        });
+        // Get target actors from tokens
+        const targets = targetedTokens.map(token => token.actor).filter(Boolean);
         
-        // Show the damage amount as floaty text
-        const gridSize = canvas.grid.size;
-        const text = `-${damageValue} ${damageType.toUpperCase()}`;
-        canvas.interface?.createScrollingText(
-          { x: token.center.x, y: token.center.y - gridSize/2 },
-          text,
-          { fill: "red", fontSize: 24, stroke: 0x000000, strokeThickness: 4 }
-        );
-      }
-      
-      // Disable the button after applying damage
-      button.classList.add("disabled");
-      $(button).find("span").text(`Damage Applied (${damageValue})`);
-      
-      ui.notifications.info(`Applied ${damageValue} ${damageType} damage to ${targetedTokens.length} target(s)`);
+        // Get source actor - try to find a valid source
+        let sourceActor = null;
+        
+        // First try to get the character from the player ID
+        if (playerId) {
+            const player = game.users.get(playerId);
+            if (player && player.character) {
+                sourceActor = player.character;
+            }
+        }
+        
+        // If we couldn't find the source actor from player ID, try the current user
+        if (!sourceActor && game.user.character) {
+            sourceActor = game.user.character;
+        }
+        
+        // If we still don't have a source actor, use a basic object
+        if (!sourceActor) {
+            sourceActor = {
+                name: "Card Effect",
+                id: "card-effect",
+                // Minimal implementation to prevent errors
+                get uuid() { return "fu-ace-cards.card-effect"; }
+            };
+        }
+        
+        // Determine traits based on event modifiers and set type
+        const traits = [];
+        if (event.shiftKey) traits.push('ignoreResistances');
+        if (event.ctrlKey && event.shiftKey) traits.push('ignoreImmunities');
+        if (setType === 'forbidden-monarch') {
+            traits.push('ignoreResistances');
+            traits.push('ignoreImmunities');
+        }
+        
+        try {
+            // Use our integration to apply damage
+            const result = await DamageIntegration.applyDamage(
+                damageType,
+                damageValue,
+                sourceActor,
+                targets,
+                traits
+            );
+            
+            // Disable the button after application (regardless of method)
+            button.classList.add("disabled");
+            $(button).find("span").text(`Damage Applied (${damageValue})`);
+        } catch (error) {
+            console.error("Error applying damage:", error);
+            ui.notifications.error("Failed to apply damage: " + error.message);
+        }
     });
   });
 
