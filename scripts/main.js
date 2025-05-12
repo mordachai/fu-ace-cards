@@ -650,60 +650,81 @@ Hooks.once('ready', async () => {
   }
 
   // Set up event listeners for tooltips
-document.addEventListener('mouseenter', function(e) {
-    // Find the closest .fu-set-indicator ancestor
+  document.addEventListener('mouseenter', function(e) {
+      // Find the closest .fu-set-indicator ancestor
+      let indicator = null;
+      let element = e.target;
+      
+      // Manual traversal up the DOM tree
+      while (element && !indicator) {
+          if (element.classList && element.classList.contains('fu-set-indicator')) {
+              indicator = element;
+          }
+          element = element.parentElement;
+      }
+      
+      if (indicator) {
+          let containerType = null;
+          // Check if it's in the hand area
+          let parent = indicator;
+          while (parent && !containerType) {
+              if (parent.id === 'fu-hand-area') {
+                  containerType = 'hand';
+              } else if (parent.id === 'fu-table-area') {
+                  containerType = 'table';
+              }
+              parent = parent.parentElement;
+          }
+          
+          if (containerType === 'hand') {
+              // Show tooltip for hand sets
+              const tooltip = showSetTooltip(indicator, containerType);
+              if (tooltip) {
+                  activeTooltips.add(tooltip);
+              }
+          } else if (containerType === 'table') {
+              // For table sets, just highlight the cards
+              const cardIds = indicator.dataset.cardIds.split(',');
+              const setType = indicator.dataset.setType;
+              
+              cardIds.forEach(cardId => {
+                  const cardElement = document.querySelector(`#fu-table-cards [data-card-id="${cardId}"]`);
+                  if (cardElement) {
+                      cardElement.classList.add('fu-valid-set', `fu-table-${setType}`);
+                  }
+              });
+          }
+      }
+  }, true);
+
+  document.addEventListener('mouseleave', (e) => {
+    // Use the same manual traversal approach as in mouseenter
     let indicator = null;
     let element = e.target;
     
     // Manual traversal up the DOM tree
     while (element && !indicator) {
-        if (element.classList && element.classList.contains('fu-set-indicator')) {
-            indicator = element;
-        }
-        element = element.parentElement;
+      if (element.classList && element.classList.contains('fu-set-indicator')) {
+        indicator = element;
+      }
+      element = element.parentElement;
     }
     
-    if (indicator) {
-        let containerType = null;
-        // Check if it's in the hand area
-        let parent = indicator;
-        while (parent && !containerType) {
-            if (parent.id === 'fu-hand-area') {
-                containerType = 'hand';
-            } else if (parent.id === 'fu-table-area') {
-                containerType = 'table';
-            }
-            parent = parent.parentElement;
-        }
-        
-        if (containerType === 'hand') {
-            // Show tooltip for hand sets
-            const tooltip = showSetTooltip(indicator, containerType);
-            if (tooltip) {
-                activeTooltips.add(tooltip);
-            }
-        } else if (containerType === 'table') {
-            // For table sets, just highlight the cards
-            const cardIds = indicator.dataset.cardIds.split(',');
-            const setType = indicator.dataset.setType;
-            
-            cardIds.forEach(cardId => {
-                const cardElement = document.querySelector(`#fu-table-cards [data-card-id="${cardId}"]`);
-                if (cardElement) {
-                    cardElement.classList.add('fu-valid-set', `fu-table-${setType}`);
-                }
-            });
-        }
-    }
-}, true);
-
-  document.addEventListener('mouseleave', (e) => {
-    const indicator = e.target.closest('.fu-set-indicator');
     if (indicator) {
       hideSetTooltip(indicator);
       
       // Also clear highlights for table sets
-      if (indicator.closest('#fu-table-area')) {
+      let isInTableArea = false;
+      let parent = indicator;
+      while (parent) {
+        if (parent.id === 'fu-table-area') {
+          isInTableArea = true;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+      
+      if (isInTableArea) {
         clearHighlights();
       }
     }

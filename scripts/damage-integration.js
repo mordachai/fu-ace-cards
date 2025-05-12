@@ -8,7 +8,7 @@ export class DamageIntegration {
      * @param {String} damageType - Type of damage to apply
      * @param {Number} damageValue - Amount of damage to apply
      * @param {Actor} sourceActor - Actor applying the damage
-     * @param {Array} targets - Array of target actors
+     * @param {Number} targets - Array of target actors
      * @param {Array} traits - Special damage traits to apply
      */
     static async applyDamage(damageType, damageValue, sourceActor, targets, traits = []) {
@@ -18,31 +18,28 @@ export class DamageIntegration {
             return { applied: false };
         }
         
-        // Try to use system integration first
-        try {
-            // Check if system exposes a damage function
-            if (game.projectfu && typeof game.projectfu.applyDamage === 'function') {
+        // Try to use system integration if available (without showing errors if not found)
+        if (game.projectfu && typeof game.projectfu.applyDamage === 'function') {
+            try {
                 await game.projectfu.applyDamage(damageType, damageValue, sourceActor, targets, traits);
                 return { applied: true };
+            } catch (systemError) {
+                console.log("System damage function failed, falling back to manual method:", systemError);
+                // Fall through to manual method below
             }
-            
-            // No system integration available, fall back to our manual method
-            throw new Error("System damage function not found");
-        } catch (error) {
-            console.error("Error applying damage via system:", error);
-            
-            // Fall back to our manual implementation
-            const results = await DamageIntegration.applyManualDamage(damageType, damageValue, sourceActor, targets, traits);
-            
-            // Create a chat message showing the damage results
-            await DamageIntegration.createDamageResultMessage(damageType, damageValue, sourceActor, results);
-            
-            return {
-                applied: true,
-                manual: true,
-                results: results
-            };
         }
+        
+        // Use our manual implementation
+        const results = await DamageIntegration.applyManualDamage(damageType, damageValue, sourceActor, targets, traits);
+        
+        // Create a chat message showing the damage results
+        await DamageIntegration.createDamageResultMessage(damageType, damageValue, sourceActor, results);
+        
+        return {
+            applied: true,
+            manual: true,
+            results: results
+        };
     }
     
     /**
