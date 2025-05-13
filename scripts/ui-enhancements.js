@@ -421,11 +421,9 @@ export function createSetTooltip(setData) {
   tooltip.innerHTML = `
     <div class="tooltip-header">
       <span class="set-name">${SET_NAMES[setData.type]}</span>
+      <span class="tooltip-requirements">${description.base}</span>
       <span class="mp-cost ${canAfford ? '' : 'insufficient'}">${mpCost} MP</span>
-    </div>
-    <div class="tooltip-requirements">
-      <strong>Requirements:</strong> ${description.base}
-    </div>
+    </div>    
     <div class="tooltip-cards">
       <strong>Your cards:</strong> ${description.cards}
     </div>

@@ -352,7 +352,9 @@
 
 .tooltip-header {
   display: flex;
+  flex-wrap: nowrap;
   justify-content: space-between;
+  align-items: center;
   margin-bottom: 8px;
   border-bottom: 1px solid #444;
   padding-bottom: 6px;
@@ -373,7 +375,11 @@
   color: #ff4444;
 }
 
-.tooltip-requirements,
+.tooltip-requirements {
+  color: #ccc;
+  font-size: 11px;
+}
+
 .tooltip-cards,
 .tooltip-effect {
   margin: 6px 0;
