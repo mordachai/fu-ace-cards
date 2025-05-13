@@ -378,6 +378,21 @@ Hooks.once('ready', async () => {
     
     // Calculate damage if this set type deals damage
     const damageData = calculateDamageForSet(setData);
+
+    // Add flag for sets that need damage type selection
+    const isDoubleTrouble = setData.type === 'double-trouble';
+    // For future implementation: const isMagicPair = setData.type === 'magic-pair';
+    
+    // Get suit information for each card
+    const cardsWithSuits = setData.cards.map(card => ({
+        id: card.id,
+        name: card.name,
+        img: card.faces[card.face ?? 0]?.img,
+        suit: getCardSuit(card) // Make sure this extracts the suit properly
+    }));
+
+    // Get available damage types (suits) for this set
+    const availableSuits = [...new Set(cardsWithSuits.map(c => c.suit))];
     
     // Prepare data for template
     const templateData = {
@@ -393,6 +408,9 @@ Hooks.once('ready', async () => {
         name: card.name,
         img: card.faces[card.face ?? 0]?.img
       })),
+      isDoubleTrouble: isDoubleTrouble,
+      cards: cardsWithSuits,
+      availableSuits: availableSuits,
       hasDamage: damageData !== null,
       damageValue: damageData?.value || 0,
       damageType: damageData?.type || '',
@@ -423,6 +441,16 @@ Hooks.once('ready', async () => {
       'club': 'earth',
       'spades': 'ice',
       'spade': 'ice'
+    };
+
+    // Mapping for icon classes
+    const damageTypeToIconClass = {
+      'fire': 'fu-fire',
+      'air': 'fu-wind',   // Special case: air damage uses fu-wind icon class
+      'earth': 'fu-earth',
+      'ice': 'fu-ice',
+      'light': 'fu-light',
+      'dark': 'fu-dark'
     };
     
     switch (setData.type) {
@@ -741,9 +769,112 @@ Hooks.once('ready', async () => {
     cleanupAllTooltips();
   });
 
-  // Handle the MP spending and damage application buttons in chat messages
   Hooks.on('renderChatMessage', (message, html) => {
-    // Handle MP spending button
+  // Check if this is a card set message
+  const messageContent = html.find('.fu-chat-cards-container');
+  if (messageContent.length > 0) {
+    // Check if this is a Double Trouble set specifically
+    const isDoubleTrouble = html.find('[data-set-type="double-trouble"]').length > 0;
+    
+    if (isDoubleTrouble) {
+      // Find the cards in this message
+      const cardImages = html.find('.fu-chat-card-img');
+      
+      // Add clickable class to all cards
+      cardImages.addClass('fu-card-clickable');
+      
+      // Define the mapping for damage types to icon classes
+      // THIS WAS MISSING IN YOUR CODE
+      const damageTypeToIconClass = {
+        'fire': 'fu-fire',
+        'air': 'fu-wind',   // Special case: air damage uses fu-wind icon class
+        'earth': 'fu-earth',
+        'ice': 'fu-ice',
+        'light': 'fu-light',
+        'dark': 'fu-dark'
+      };
+      
+      // Add click handler to each card
+      cardImages.on('click', function(event) {
+        // Rest of your code is correct...
+        
+        // Get the suit from the card's data or from the card name if not set
+        const cardElement = $(this);
+        let cardSuit = cardElement.data('card-suit');
+        
+        // If suit data not directly available, try to extract from the card name
+        if (!cardSuit) {
+          const cardName = cardElement.attr('title') || '';
+          // Extract suit from name (hearts, diamonds, clubs, spades)
+          const suitMatch = cardName.toLowerCase().match(/(heart|diamond|club|spade)s?/);
+          cardSuit = suitMatch ? suitMatch[0] : '';
+        }
+        
+        // Map suit to damage type based on the standard mapping
+        const suitToDamageType = {
+          'hearts': 'fire',
+          'heart': 'fire',
+          'diamonds': 'air',
+          'diamond': 'air',
+          'clubs': 'earth',
+          'club': 'earth',
+          'spades': 'ice',
+          'spade': 'ice'
+        };
+        
+        const damageType = suitToDamageType[cardSuit.toLowerCase()] || cardSuit;
+        
+        // Remove selected class from any previously selected card
+        cardImages.removeClass('fu-selected-card');
+        
+        // Add selected class to this card
+        cardElement.addClass('fu-selected-card');
+        
+        // Update the damage button with the selected damage type
+        const damageButton = html.find('[data-action="applyDamageSelected"]');
+        if (damageButton.length) {
+          // Update damage type attribute
+          damageButton.attr('data-damage-type', damageType);
+          
+          // Get a display name for the damage type
+          const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || damageType.toUpperCase();
+          
+          // Update the button text
+          damageButton.find('span').html(`Apply ${damageTypeDisplay} damage <i class="icon fas fa-heart-crack"></i>`);
+        }
+        
+        // Update the system's damage label (the one you shared in the DOM)
+        const damageLabel = html.find('.damageType');
+        if (damageLabel.length) {
+          // Remove existing damage type classes
+          damageLabel.removeClass('fire ice earth air light dark');
+          
+          // Add the new damage type class
+          damageLabel.addClass(damageType);
+          
+          // Update tooltip for endcap
+          const endcap = damageLabel.find('.endcap');
+          if (endcap.length) {
+            const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
+                                    damageType.charAt(0).toUpperCase() + damageType.slice(1);
+            endcap.attr('data-tooltip', damageTypeDisplay);
+            
+            // Use the correct icon class based on damage type
+            const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;
+            endcap.html(`<i class="fua ${iconClass}"></i>`);
+          }
+        }
+      });
+      
+      // Initialize the apply damage button to indicate selection is needed
+      const damageButton = html.find('[data-action="applyDamageSelected"]');
+      if (damageButton.length) {
+        damageButton.find('span').html(`Select damage type <i class="icon fas fa-heart-crack"></i>`);
+      }
+    }
+  }
+    
+    // Handle MP spending button (existing code)
     html.find('[data-action="applyResourceLoss"]').click(async (event) => {
       event.preventDefault();
       const button = event.currentTarget;
@@ -769,77 +900,84 @@ Hooks.once('ready', async () => {
       }
     });
     
-    // Handle damage application button
+    // Handle damage application button (your existing code)
     html.find('[data-action="applyDamageSelected"]').click(async (event) => {
-        event.preventDefault();
-        const button = event.currentTarget;
-        const damageType = button.dataset.damageType;
-        const damageValue = parseInt(button.dataset.damageValue);
-        const setType = button.dataset.setType;
-        const playerId = button.dataset.playerId;
-        
-        // Get targeted tokens (for enemies)
-        const targetedTokens = Array.from(game.user.targets);
-        if (targetedTokens.length === 0) {
-            ui.notifications.warn("No targets selected. Use the targeting tool to target enemies.");
-            return;
-        }
-        
-        // Get target actors from tokens
-        const targets = targetedTokens.map(token => token.actor).filter(Boolean);
-        
-        // Get source actor - try to find a valid source
-        let sourceActor = null;
-        
-        // First try to get the character from the player ID
-        if (playerId) {
-            const player = game.users.get(playerId);
-            if (player && player.character) {
-                sourceActor = player.character;
-            }
-        }
-        
-        // If we couldn't find the source actor from player ID, try the current user
-        if (!sourceActor && game.user.character) {
-            sourceActor = game.user.character;
-        }
-        
-        // If we still don't have a source actor, use a basic object
-        if (!sourceActor) {
-            sourceActor = {
-                name: "Card Effect",
-                id: "card-effect",
-                // Minimal implementation to prevent errors
-                get uuid() { return "fu-ace-cards.card-effect"; }
-            };
-        }
-        
-        // Determine traits based on event modifiers and set type
-        const traits = [];
-        if (event.shiftKey) traits.push('ignoreResistances');
-        if (event.ctrlKey && event.shiftKey) traits.push('ignoreImmunities');
-        if (setType === 'forbidden-monarch') {
-            traits.push('ignoreResistances');
-            traits.push('ignoreImmunities');
-        }
-        
-        try {
-            // Use our integration to apply damage
-            const result = await DamageIntegration.applyDamage(
-                damageType,
-                damageValue,
-                sourceActor,
-                targets,
-                traits
-            );
-            
-            // Disable the button after application (regardless of method)
-            button.classList.add("disabled");
-            $(button).find("span").text(`Damage Applied (${damageValue})`);
-        } catch (error) {
-            console.error("Error applying damage:", error);
-            ui.notifications.error("Failed to apply damage: " + error.message);
-        }
+      event.preventDefault();
+      const button = event.currentTarget;
+      const damageType = button.dataset.damageType;
+      const damageValue = parseInt(button.dataset.damageValue);
+      const setType = button.dataset.setType;
+      const playerId = button.dataset.playerId;
+      
+      // For Double Trouble, verify a card has been selected
+      if (setType === 'double-trouble' && !html.find('.fu-selected-card').length) {
+        ui.notifications.warn("Please select a card to determine damage type first.");
+        return;
+      }
+      
+      // Get targeted tokens (for enemies)
+      const targetedTokens = Array.from(game.user.targets);
+      if (targetedTokens.length === 0) {
+        ui.notifications.warn("No targets selected. Use the targeting tool to target enemies.");
+        return;
+      }
+      
+      // Rest of your existing damage application code...
+      // Get target actors from tokens
+      const targets = targetedTokens.map(token => token.actor).filter(Boolean);
+      
+      // Get source actor - try to find a valid source
+      let sourceActor = null;
+      
+      // First try to get the character from the player ID
+      if (playerId) {
+          const player = game.users.get(playerId);
+          if (player && player.character) {
+              sourceActor = player.character;
+          }
+      }
+      
+      // If we couldn't find the source actor from player ID, try the current user
+      if (!sourceActor && game.user.character) {
+          sourceActor = game.user.character;
+      }
+      
+      // If we still don't have a source actor, use a basic object
+      if (!sourceActor) {
+          sourceActor = {
+              name: "Card Effect",
+              id: "card-effect",
+              // Minimal implementation to prevent errors
+              get uuid() { return "fu-ace-cards.card-effect"; }
+          };
+      }
+      
+      // Determine traits based on event modifiers and set type
+      const traits = [];
+      if (event.shiftKey) traits.push('ignoreResistances');
+      if (event.ctrlKey && event.shiftKey) traits.push('ignoreImmunities');
+      if (setType === 'forbidden-monarch') {
+          traits.push('ignoreResistances');
+          traits.push('ignoreImmunities');
+      }
+      
+      try {
+          // Use our integration to apply damage
+          const result = await DamageIntegration.applyDamage(
+              damageType,
+              damageValue,
+              sourceActor,
+              targets,
+              traits
+          );
+          
+          // Disable the button after application (regardless of method)
+          button.classList.add("disabled");
+          $(button).find("span").text(`Damage Applied (${damageValue})`);
+      } catch (error) {
+          console.error("Error applying damage:", error);
+          ui.notifications.error("Failed to apply damage: " + error.message);
+      }
     });
   });
 
