@@ -26,6 +26,11 @@
                 data-card-index="{{@index}}">
           {{/each}}
         </div>
+      {{#if debugInfo}}
+      <div class="debug-info" style="font-size: 10px; color: #7b0606; margin-top: 5px;">
+        Debug: Highest Value = {{highestValue}} ({{#if isEven}}Even{{else}}Odd{{/if}})
+      </div>
+      {{/if}}
       <div class="fu-combo-description" style="text-align: center; margin-top: 10px; font-style: italic;">
         {{comboDescription}}
       </div>

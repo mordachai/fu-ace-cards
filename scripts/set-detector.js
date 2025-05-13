@@ -1,5 +1,6 @@
 // scripts/set-detector.js
 import { SETTINGS_KEYS } from './settings.js';
+import { MODULE_ID } from './settings.js';
 
 // Set name mappings
 export const SET_NAMES = {
@@ -38,44 +39,113 @@ export function detectFabulaUltimaSets(cards) {
   const sets = [];
   const cardArray = Array.from(cards);
   
-  // Convert cards to analyzable format
-  const analyzableCards = cardArray.map(card => ({
-    id: card.id,
-    value: getCardValue(card),
-    suit: getCardSuit(card),
-    isJoker: isJoker(card),
-    card: card
-  }));
+  // Convert cards to analyzable format with special handling for jokers
+  const analyzableCards = cardArray.map(card => {
+    // Check if this is a joker
+    const isJokerCard = isJoker(card);
+    
+    if (isJokerCard) {
+      // Get phantom values if assigned
+      const phantomSuit = card.getFlag(MODULE_ID, 'phantomSuit');
+      const phantomValue = card.getFlag(MODULE_ID, 'phantomValue');
+      
+      return {
+        id: card.id,
+        value: phantomValue ? parseInt(phantomValue) : 0,
+        suit: phantomSuit || '',
+        isJoker: true,
+        hasPhantomValues: !!(phantomSuit && phantomValue),
+        originalValue: getCardValue(card), // Keep track of original value
+        originalSuit: getCardSuit(card),   // Keep track of original suit
+        card: card
+      };
+    }
+    
+    // Regular card handling
+    return {
+      id: card.id,
+      value: getCardValue(card),
+      suit: getCardSuit(card),
+      isJoker: false,
+      card: card
+    };
+  });
+  
+  // Create separate arrays for analysis
+  // 1. All cards including jokers with their phantom values (for most set detection)
+  const allCards = [...analyzableCards];
+  
+  // 2. Non-joker cards only (for sets that explicitly exclude jokers like Jackpot)
+  const nonJokers = analyzableCards.filter(c => !c.isJoker);
+  
+  // 3. Jokers only (for sets requiring jokers like Forbidden Monarch)
+  const jokers = analyzableCards.filter(c => c.isJoker);
+  
+  // 4. Valid jokers with assigned values
+  const validJokers = jokers.filter(c => c.hasPhantomValues);
+  
+  // 5. All valid cards (non-jokers + jokers with assigned values)
+  const validCards = [...nonJokers, ...validJokers];
   
   // Sort by value for easier analysis
-  analyzableCards.sort((a, b) => a.value - b.value);
+  validCards.sort((a, b) => a.value - b.value);
   
-  // Check for each set type
-  const jackpot = findJackpot(analyzableCards);
+  // Jackpot: Must be 4 cards of same value, none of which is a joker
+  const jackpot = findJackpot(nonJokers);  // Explicitly use non-jokers
   if (jackpot) sets.push(jackpot);
   
-  const magicFlush = findMagicFlush(analyzableCards);
+  // Magic Flush: 4 cards of consecutive values and same suit
+  // Can include jokers with their phantom values
+  const magicFlush = findMagicFlush(validCards);
   if (magicFlush) sets.push(magicFlush);
   
-  const blindingFlush = findBlindingFlush(analyzableCards);
+  // Blinding Flush: 4 cards of consecutive values (any suits)
+  // Can include jokers with their phantom values
+  const blindingFlush = findBlindingFlush(validCards);
   if (blindingFlush) sets.push(blindingFlush);
   
-  const fullStatus = findFullStatus(analyzableCards);
+  // Full Status: 3 cards of same value + 2 cards of same value
+  // Can include jokers with their phantom values
+  const fullStatus = findFullStatus(validCards);
   if (fullStatus) sets.push(fullStatus);
   
-  // These now return arrays
-  const tripleSupports = findTripleSupport(analyzableCards);
+  // Triple Support: 3 cards of same value
+  // Can include jokers with their phantom values
+  const tripleSupports = findTripleSupport(validCards);
   sets.push(...tripleSupports);
   
-  const doubleTroubles = findDoubleTrouble(analyzableCards);
+  // Double Trouble: 2 cards of same value + 2 cards of same value
+  // Can include jokers with their phantom values
+  const doubleTroubles = findDoubleTrouble(validCards);
   sets.push(...doubleTroubles);
   
-  const magicPairs = findMagicPair(analyzableCards);
+  // Magic Pair: 2 cards of same value
+  // Can include jokers with their phantom values
+  const magicPairs = findMagicPair(validCards);
   sets.push(...magicPairs);
   
-  // Check for forbidden monarch if heroic skill is available
-  const forbiddenMonarch = findForbiddenMonarch(analyzableCards);
+  // Forbidden Monarch: 4 cards of same value (no jokers) + 1 joker
+  // Special case: Need to use both nonJokers and jokers separately
+  const forbiddenMonarch = findForbiddenMonarch(nonJokers, jokers);
   if (forbiddenMonarch) sets.push(forbiddenMonarch);
+  
+  // Post-processing: For sets with jokers, mark them in the set data
+  for (const set of sets) {
+    set.includesJokers = set.cards.some(card => 
+      card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker')
+    );
+    
+    // Add info about which jokers and their phantom values
+    if (set.includesJokers) {
+      set.jokerInfo = set.cards
+        .filter(card => card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker'))
+        .map(joker => ({
+          id: joker.id,
+          phantomSuit: joker.getFlag(MODULE_ID, 'phantomSuit'),
+          phantomValue: joker.getFlag(MODULE_ID, 'phantomValue')
+        }));
+    }
+  }
   
   return sets;
 }
@@ -257,21 +327,27 @@ function findDoubleTrouble(cards) {
   return doubleTroubles;
 }
 
-// Find Forbidden Monarch: 4 of same value + 1 joker
-function findForbiddenMonarch(cards) {
-  // Check if player has the Forbidden Rite heroic skill
-  // This would need to be implemented based on your character system
+function findForbiddenMonarch(nonJokers, jokers) {
+  // If jokers array isn't provided (backward compatibility), 
+  // extract jokers from cards if provided as a single array
+  if (!jokers && Array.isArray(nonJokers)) {
+    // This is the old signature, extract jokers from the array
+    const cards = nonJokers;
+    jokers = cards.filter(c => c.isJoker);
+    nonJokers = cards.filter(c => !c.isJoker);
+  }
   
-  const jokers = cards.filter(c => c.isJoker);
-  const nonJokers = cards.filter(c => !c.isJoker);
-  
-  if (jokers.length === 0) return null;
+  // Need at least one joker
+  if (!jokers || jokers.length === 0) return null;
   
   const valueGroups = groupByValue(nonJokers);
   
   for (const [value, group] of Object.entries(valueGroups)) {
     if (group.length === 4) {
-      const allCards = [...group, jokers[0]];
+      // Use any joker (doesn't matter which one for Forbidden Monarch)
+      const joker = jokers[0];
+      const allCards = [...group, joker];
+      
       return {
         type: 'forbidden-monarch',
         cards: allCards.map(c => c.card),
