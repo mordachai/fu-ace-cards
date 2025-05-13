@@ -45,150 +45,182 @@ try {
 }
 }
 
-  // Play a card from hand to table
-  static async playCardToTable(card) {
-    const piles = getCurrentPlayerPiles();
-    const tablePile = getTablePile();
+// Discard a specific card from hand
+static async discardCard(cardId) {
+  const piles = getCurrentPlayerPiles();
+  if (!piles?.hand || !piles?.discard) {
+    ui.notifications.warn('Hand or discard pile not available');
+    return false;
+  }
+  
+  // Check if the card is still in the hand
+  if (!piles.hand.cards.has(cardId)) {
+    ui.notifications.warn('Card no longer in hand');
+    return false;
+  }
+  
+  try {
+    // Clean up tooltips before moving cards
+    UIManager.cleanupAllTooltips();
     
-    if (!piles?.hand || !tablePile) {
-      ui.notifications.warn('Hand or table pile not available');
-      return false;
+    // Pass the card to the discard pile
+    await piles.hand.pass(piles.discard, [cardId], { chatNotification: false });
+    
+    // Update UI
+    UIManager.renderHand();
+    ui.notifications.info('Card discarded');
+    return true;
+  } catch (error) {
+    console.error(`${MODULE_ID} | Error discarding card:`, error);
+    ui.notifications.error(`Failed to discard card: ${error.message}`);
+    return false;
+  }
+}
+
+// Play a card from hand to table
+static async playCardToTable(card) {
+  const piles = getCurrentPlayerPiles();
+  const tablePile = getTablePile();
+  
+  if (!piles?.hand || !tablePile) {
+    ui.notifications.warn('Hand or table pile not available');
+    return false;
+  }
+  
+  try {
+    await piles.hand.pass(tablePile, [card.id], { chatNotification: false });
+    
+    // Set owner flag on the card AFTER successful pass
+    const tableCard = tablePile.cards.get(card.id);
+    if (tableCard) {
+      await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
+      
+      // If it's a joker, also transfer phantom values
+      if (card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker')) {
+        const phantomSuit = card.getFlag(MODULE_ID, 'phantomSuit');
+        const phantomValue = card.getFlag(MODULE_ID, 'phantomValue');
+        
+        if (phantomSuit) await tableCard.setFlag(MODULE_ID, 'phantomSuit', phantomSuit);
+        if (phantomValue) await tableCard.setFlag(MODULE_ID, 'phantomValue', phantomValue);
+      }
     }
     
-    try {
-      await piles.hand.pass(tablePile, [card.id], { chatNotification: false });
+    // Emit socket message to notify other players
+    SocketManager.emitCardToTable(card.id);
+    
+    UIManager.renderHand();
+    UIManager.renderTable();
+    ui.notifications.info(`Played ${card.name}`);
+    return true;
+  } catch (error) {
+    console.error("Error playing card:", error);
+    ui.notifications.error(`Failed to play card: ${error.message}`);
+    UIManager.renderHand(); // Re-render to ensure UI is in sync
+    return false;
+  }
+}
+  
+// Play a set to table
+static async playSetToTable(setData, indicator) {
+  const piles = getCurrentPlayerPiles();
+  const tablePile = getTablePile();
+  
+  if (!piles?.hand || !tablePile) {
+    ui.notifications.warn('Hand or table pile not available');
+    return false;
+  }
+  
+  // Hide tooltip immediately when clicking
+  UIManager.cleanupAllTooltips();
+
+  // Get card IDs from the indicator
+  const cardIds = indicator.dataset.cardIds.split(',');
+  if (!cardIds || cardIds.length === 0) {
+    ui.notifications.warn("No cards found in the set");
+    return false;
+  }
+
+  // Check if set contains unassigned jokers
+  const hasUnassignedJoker = cardIds.some(cardId => {
+    const card = piles.hand.cards.get(cardId);
+    if (!card) return false;
+    
+    const isJoker = card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker');
+    return isJoker && (!card.getFlag(MODULE_ID, 'phantomSuit') || !card.getFlag(MODULE_ID, 'phantomValue'));
+  });
+  
+  if (hasUnassignedJoker) {
+    ui.notifications.warn("Please assign values to all jokers in the set before playing it (right-click on jokers)");
+    return false;
+  }
+  
+  // Double-check we can still afford it
+  const mpCost = parseInt(indicator.dataset.mpCost);
+  const actor = game.user.character;
+  
+  if (actor) {
+    const currentMP = actor.system.resources?.mp?.value || 0;
+    if (currentMP < mpCost) {
+      ui.notifications.warn(`Not enough MP. Need ${mpCost}, have ${currentMP}`);
+      return false;
+    }
+  }
+  
+  const setType = indicator.dataset.setType;
+  
+  try {
+    // Play all cards in the set to table
+    for (const cardId of cardIds) {
+      if (!piles.hand.cards.has(cardId)) {
+        throw new Error(`Card ${cardId} no longer in hand`);
+      }
+      
+      // Get card before passing to preserve any flags
+      const handCard = piles.hand.cards.get(cardId);
+      
+      // Pass the card to the table
+      await piles.hand.pass(tablePile, [cardId], { chatNotification: false });
       
       // Set owner flag on the card AFTER successful pass
-      const tableCard = tablePile.cards.get(card.id);
+      const tableCard = tablePile.cards.get(cardId);
       if (tableCard) {
+        // Set basic flags
         await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
+        await tableCard.setFlag(MODULE_ID, 'setType', setType);
         
-        // If it's a joker, also transfer phantom values
-        if (card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker')) {
-          const phantomSuit = card.getFlag(MODULE_ID, 'phantomSuit');
-          const phantomValue = card.getFlag(MODULE_ID, 'phantomValue');
+        // If it's a joker, also transfer the phantom values
+        if (handCard.name.toLowerCase().includes('joker') || handCard.getFlag(MODULE_ID, 'isJoker')) {
+          const phantomSuit = handCard.getFlag(MODULE_ID, 'phantomSuit');
+          const phantomValue = handCard.getFlag(MODULE_ID, 'phantomValue');
           
           if (phantomSuit) await tableCard.setFlag(MODULE_ID, 'phantomSuit', phantomSuit);
           if (phantomValue) await tableCard.setFlag(MODULE_ID, 'phantomValue', phantomValue);
         }
       }
-      
-      // Emit socket message to notify other players
-      SocketManager.emitCardToTable(card.id);
-      
-      UIManager.renderHand();
-      UIManager.renderTable();
-      ui.notifications.info(`Played ${card.name}`);
-      return true;
-    } catch (error) {
-      console.error("Error playing card:", error);
-      ui.notifications.error(`Failed to play card: ${error.message}`);
-      UIManager.renderHand(); // Re-render to ensure UI is in sync
-      return false;
     }
+    
+    // Emit socket message to notify other players
+    SocketManager.emitSetPlayed(setType, cardIds);
+    
+    // Update UI
+    UIManager.renderHand();
+    UIManager.renderTable();
+    
+    // Show notification
+    const setName = SET_NAMES[setType] || setType.replace('-', ' ').split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+    
+    ui.notifications.info(`Played ${setName} to table (${mpCost} MP)`);
+    return true;
+    
+  } catch (error) {
+    console.error("Error playing set:", error);
+    ui.notifications.error(`Failed to play set: ${error.message}`);
+    UIManager.renderHand();
+    return false;
   }
-  
-  // Play a set to table
-  static async playSetToTable(setData, indicator) {
-    const piles = getCurrentPlayerPiles();
-    const tablePile = getTablePile();
-    
-    if (!piles?.hand || !tablePile) {
-      ui.notifications.warn('Hand or table pile not available');
-      return false;
-    }
-    
-    // Hide tooltip immediately when clicking
-    UIManager.cleanupAllTooltips();
-
-    // Get card IDs from the indicator
-    const cardIds = indicator.dataset.cardIds.split(',');
-    if (!cardIds || cardIds.length === 0) {
-      ui.notifications.warn("No cards found in the set");
-      return false;
-    }
-
-    // Check if set contains unassigned jokers
-    const hasUnassignedJoker = cardIds.some(cardId => {
-      const card = piles.hand.cards.get(cardId);
-      if (!card) return false;
-      
-      const isJoker = card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker');
-      return isJoker && (!card.getFlag(MODULE_ID, 'phantomSuit') || !card.getFlag(MODULE_ID, 'phantomValue'));
-    });
-    
-    if (hasUnassignedJoker) {
-      ui.notifications.warn("Please assign values to all jokers in the set before playing it (right-click on jokers)");
-      return false;
-    }
-    
-    // Double-check we can still afford it
-    const mpCost = parseInt(indicator.dataset.mpCost);
-    const actor = game.user.character;
-    
-    if (actor) {
-      const currentMP = actor.system.resources?.mp?.value || 0;
-      if (currentMP < mpCost) {
-        ui.notifications.warn(`Not enough MP. Need ${mpCost}, have ${currentMP}`);
-        return false;
-      }
-    }
-    
-    const setType = indicator.dataset.setType;
-    
-    try {
-      // Play all cards in the set to table
-      for (const cardId of cardIds) {
-        if (!piles.hand.cards.has(cardId)) {
-          throw new Error(`Card ${cardId} no longer in hand`);
-        }
-        
-        // Get card before passing to preserve any flags
-        const handCard = piles.hand.cards.get(cardId);
-        
-        // Pass the card to the table
-        await piles.hand.pass(tablePile, [cardId], { chatNotification: false });
-        
-        // Set owner flag on the card AFTER successful pass
-        const tableCard = tablePile.cards.get(cardId);
-        if (tableCard) {
-          // Set basic flags
-          await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
-          await tableCard.setFlag(MODULE_ID, 'setType', setType);
-          
-          // If it's a joker, also transfer the phantom values
-          if (handCard.name.toLowerCase().includes('joker') || handCard.getFlag(MODULE_ID, 'isJoker')) {
-            const phantomSuit = handCard.getFlag(MODULE_ID, 'phantomSuit');
-            const phantomValue = handCard.getFlag(MODULE_ID, 'phantomValue');
-            
-            if (phantomSuit) await tableCard.setFlag(MODULE_ID, 'phantomSuit', phantomSuit);
-            if (phantomValue) await tableCard.setFlag(MODULE_ID, 'phantomValue', phantomValue);
-          }
-        }
-      }
-      
-      // Emit socket message to notify other players
-      SocketManager.emitSetPlayed(setType, cardIds);
-      
-      // Update UI
-      UIManager.renderHand();
-      UIManager.renderTable();
-      
-      // Show notification
-      const setName = SET_NAMES[setType] || setType.replace('-', ' ').split(' ').map(word => 
-        word.charAt(0).toUpperCase() + word.slice(1)
-      ).join(' ');
-      
-      ui.notifications.info(`Played ${setName} to table (${mpCost} MP)`);
-      return true;
-      
-    } catch (error) {
-      console.error("Error playing set:", error);
-      ui.notifications.error(`Failed to play set: ${error.message}`);
-      UIManager.renderHand();
-      return false;
-    }
-  }
+}
   
   // Clean the table
 static async cleanTable() {
@@ -246,29 +278,29 @@ static async cleanTable() {
   return true;
 }
   
-  // Reset hand
-  static async resetHand() {
-    const piles = getCurrentPlayerPiles();
-    if (!piles?.hand) {
-      ui.notifications.warn('No hand assigned');
-      return false;
-    }
-    
-    const ids = piles.hand.cards.map(c => c.id);
-    if (!ids.length) {
-      ui.notifications.info('Hand empty');
-      return false;
-    }
-    
-    await piles.hand.pass(piles.discard, ids, { chatNotification: false });
-    
-    // Clean up tooltips when hand is reset
-    UIManager.cleanupAllTooltips();
-    
-    UIManager.renderHand();
-    ui.notifications.info('Hand reset');
-    return true;
+// Reset hand
+static async resetHand() {
+  const piles = getCurrentPlayerPiles();
+  if (!piles?.hand) {
+    ui.notifications.warn('No hand assigned');
+    return false;
   }
+  
+  const ids = piles.hand.cards.map(c => c.id);
+  if (!ids.length) {
+    ui.notifications.info('Hand empty');
+    return false;
+  }
+  
+  await piles.hand.pass(piles.discard, ids, { chatNotification: false });
+  
+  // Clean up tooltips when hand is reset
+  UIManager.cleanupAllTooltips();
+  
+  UIManager.renderHand();
+  ui.notifications.info('Hand reset');
+  return true;
+}
   
   // Activate a set on the table
 static async activateTableSet(setData, playerId) {
@@ -327,7 +359,6 @@ static async activateTableSet(setData, playerId) {
   }
 }
 
-// from here
 
 static async createSetActivationMessage(setData, playerId, mpCost) {
   // Get description data

@@ -200,6 +200,8 @@ export class HooksManager {
             showHandArea: UIManager.showHandArea.bind(UIManager),
             getCurrentPlayerPiles: PileManager.getCurrentPlayerPiles.bind(PileManager),
             getTablePile: PileManager.getTablePile.bind(PileManager),
+            discardCard: CardController.discardCard.bind(CardController),
+
             
             // Event handlers
             handleHandSetClick: EventHandlers.handleHandSetClick.bind(EventHandlers),

@@ -580,3 +580,41 @@
   70% { box-shadow: 0 0 0 5px rgba(255, 99, 71, 0); }
   100% { box-shadow: 0 0 0 0 rgba(255, 99, 71, 0); }
 }
+
+/* Card discard button */
+.fu-card-discard {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 0, 0, 0.8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 20; /* Ensure it's above the card */
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Show discard button on hover */
+.fu-card:hover .fu-card-discard {
+  opacity: 1;
+}
+
+/* Hover effect on the discard button */
+.fu-card-discard:hover {
+  background: rgba(255, 0, 0, 1);
+  transform: scale(1.1);
+}
+
+/* Ensure relative positioning on cards for absolute positioning of the X button */
+.fu-card {
+  position: relative;
+  /* existing card styles remain... */
+}

@@ -97,6 +97,39 @@ export class UIManager {
       d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
       d.dataset.cardId = c.id;
 
+      // Add discard button (X) to the card
+      const discardBtn = document.createElement('div');
+      discardBtn.className = 'fu-card-discard';
+      discardBtn.innerHTML = '<i class="fas fa-times"></i>';
+      discardBtn.title = 'Discard this card';
+      
+      // Add click handler for the discard button
+      discardBtn.addEventListener('click', async (event) => {
+        event.stopPropagation(); // Prevent the card click from triggering
+        
+        // Validate the card is still in hand
+        if (!hand.cards.has(c.id)) {
+          ui.notifications.warn('Card no longer in hand');
+          this.renderHand();
+          return;
+        }
+        
+        // Clean up tooltips
+        this.cleanupAllTooltips();
+        
+        // Directly discard this card - use card controller if available through global API
+        if (window.FuAceCards?.CardController) {
+          await window.FuAceCards.CardController.discardCard(c.id);
+        } else if (window.FuAceCards?.discardCard) {
+          await window.FuAceCards.discardCard(c.id);
+        } else {
+          console.error(`${MODULE_ID} | Cannot find discardCard method`);
+        }
+      });
+      
+      // Append the discard button to the card
+      d.appendChild(discardBtn);
+
       // Check if this is a joker card
       const isJoker = c.name.toLowerCase().includes('joker') || c.getFlag(MODULE_ID, 'isJoker');
       
@@ -189,25 +222,25 @@ export class UIManager {
     }
   }
 
-    // Apply player color to card element
-    static applyPlayerColor(cardElement, card) {
-    // Add safety check for settings
-    if (!game.settings || !game.settings.get) return;
-    
-    try {
-        if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.SHOW_PLAYER_COLORS)) return;
-        
-        const ownerId = card.getFlag(MODULE_ID, 'ownerId');
-        if (ownerId) {
-        const color = this.getPlayerColor(ownerId);
-        cardElement.dataset.ownerId = ownerId;
-        cardElement.style.setProperty('--player-color', color);
-        cardElement.classList.add('fu-card-owned');
-        }
-    } catch (error) {
-        console.warn(`${MODULE_ID} | Could not apply player color:`, error);
-    }
-    }
+  // Apply player color to card element
+  static applyPlayerColor(cardElement, card) {
+  // Add safety check for settings
+  if (!game.settings || !game.settings.get) return;
+  
+  try {
+      if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.SHOW_PLAYER_COLORS)) return;
+      
+      const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+      if (ownerId) {
+      const color = this.getPlayerColor(ownerId);
+      cardElement.dataset.ownerId = ownerId;
+      cardElement.style.setProperty('--player-color', color);
+      cardElement.classList.add('fu-card-owned');
+      }
+  } catch (error) {
+      console.warn(`${MODULE_ID} | Could not apply player color:`, error);
+  }
+  }
   
   // Create tooltip for card
   static createCardTooltip(card) {
