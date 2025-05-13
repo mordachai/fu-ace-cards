@@ -1,41 +1,51 @@
-<div class="joker-dialog">
-  <div class="section-label">Select Suit</div>
-  <div class="joker-radio-group" id="suit-group">
-    {{#each suits}}
-      <div class="suit-option {{#if (eq ../currentSuit this.value)}}selected{{/if}}" 
-           data-value="{{this.value}}">
-        <div class="suit-symbol" style="color: {{this.color}}">{{this.symbol}}</div>
-        <div class="suit-element">【{{this.element}}】</div>
+<div class="dialog-content">
+  <form>
+    <div class="desc mb-3">
+      <div class="form-group">
+        <label><b>Select Suit</b></label>
+        <div class="grid grid-4col gap-2" id="suit-group">
+          {{#each suits}}
+            <div class="fu-suit-selector {{#if (eq ../currentSuit this.value)}}active{{/if}}" 
+                data-value="{{this.value}}">
+              <div class="suit-icon" style="color: {{this.color}}">{{this.symbol}}</div>
+              <div class="suit-name">【{{this.element}}】</div>
+            </div>
+          {{/each}}
+        </div>
       </div>
-    {{/each}}
-  </div>
-  
-  <div class="section-label">Select Value</div>
-  <div class="joker-radio-group" id="value-group">
-    {{#each values}}
-      <div class="value-option {{#if (eq ../currentValue this)}}selected{{/if}}" data-value="{{this}}">
-        {{this}}
+    </div>
+    
+    <div class="desc mb-3">
+      <div class="form-group">
+        <label><b>Select Value</b></label>
+        <div class="grid grid-7col gap-1" id="value-group">
+          {{#each values}}
+            <div class="fu-value-selector {{#if (eq ../currentValue this)}}active{{/if}}" data-value="{{this}}">
+              {{this}}
+            </div>
+          {{/each}}
+        </div>
       </div>
-    {{/each}}
-  </div>
-  
-  <input type="hidden" id="selected-suit" name="selected-suit" value="{{currentSuit}}">
-  <input type="hidden" id="selected-value" name="selected-value" value="{{currentValue}}">
+    </div>
+    
+    <input type="hidden" id="selected-suit" name="selected-suit" value="{{currentSuit}}">
+    <input type="hidden" id="selected-value" name="selected-value" value="{{currentValue}}">
+  </form>
 </div>
 
 <script>
   // Add click handlers once dialog is rendered
   setTimeout(() => {
     // Suit selection
-    document.querySelectorAll('#suit-group .suit-option').forEach(option => {
+    document.querySelectorAll('#suit-group .fu-suit-selector').forEach(option => {
       option.addEventListener('click', () => {
-        // Remove selected class from all options
-        document.querySelectorAll('#suit-group .suit-option').forEach(opt => {
-          opt.classList.remove('selected');
+        // Remove active class from all options
+        document.querySelectorAll('#suit-group .fu-suit-selector').forEach(opt => {
+          opt.classList.remove('active');
         });
         
-        // Add selected class to clicked option
-        option.classList.add('selected');
+        // Add active class to clicked option
+        option.classList.add('active');
         
         // Update hidden input
         document.getElementById('selected-suit').value = option.dataset.value;
@@ -43,15 +53,15 @@
     });
     
     // Value selection
-    document.querySelectorAll('#value-group .value-option').forEach(option => {
+    document.querySelectorAll('#value-group .fu-value-selector').forEach(option => {
       option.addEventListener('click', () => {
-        // Remove selected class from all options
-        document.querySelectorAll('#value-group .value-option').forEach(opt => {
-          opt.classList.remove('selected');
+        // Remove active class from all options
+        document.querySelectorAll('#value-group .fu-value-selector').forEach(opt => {
+          opt.classList.remove('active');
         });
         
-        // Add selected class to clicked option
-        option.classList.add('selected');
+        // Add active class to clicked option
+        option.classList.add('active');
         
         // Update hidden input
         document.getElementById('selected-value').value = option.dataset.value;
