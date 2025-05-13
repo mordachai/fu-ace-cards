@@ -15,16 +15,13 @@ export class CardController {
 static async drawCard() {
 const piles = PileManager.getCurrentPlayerPiles();
 if (!piles?.deck) {
-    ui.notifications.warn('No deck assigned');
     return false;
 }
 
 if (piles.deck.cards.size === 0) {
-    ui.notifications.warn('Deck empty');
     
     // Check if discard has cards to reshuffle
     if (piles.discard && piles.discard.cards.size > 0) {
-    ui.notifications.info('Reshuffling discard pile into deck...');
     await piles.discard.reset({ shuffle: true });
     // Try again after reshuffling
     return this.drawCard();
@@ -36,11 +33,9 @@ if (piles.deck.cards.size === 0) {
 try {
     await piles.deck.deal([piles.hand], 1, { how: CONST.CARD_DRAW_MODES.RANDOM, chatNotification: false });
     UIManager.renderHand();
-    ui.notifications.info('You drew a card');
     return true;
 } catch (error) {
     console.error(`${MODULE_ID} | Error drawing card:`, error);
-    ui.notifications.error('Failed to draw card. Check if deck has cards.');
     return false;
 }
 }
@@ -49,13 +44,11 @@ try {
 static async discardCard(cardId) {
   const piles = getCurrentPlayerPiles();
   if (!piles?.hand || !piles?.discard) {
-    ui.notifications.warn('Hand or discard pile not available');
     return false;
   }
   
   // Check if the card is still in the hand
   if (!piles.hand.cards.has(cardId)) {
-    ui.notifications.warn('Card no longer in hand');
     return false;
   }
   
@@ -68,11 +61,9 @@ static async discardCard(cardId) {
     
     // Update UI
     UIManager.renderHand();
-    ui.notifications.info('Card discarded');
     return true;
   } catch (error) {
     console.error(`${MODULE_ID} | Error discarding card:`, error);
-    ui.notifications.error(`Failed to discard card: ${error.message}`);
     return false;
   }
 }
@@ -83,7 +74,6 @@ static async playCardToTable(card) {
   const tablePile = getTablePile();
   
   if (!piles?.hand || !tablePile) {
-    ui.notifications.warn('Hand or table pile not available');
     return false;
   }
   
@@ -110,11 +100,9 @@ static async playCardToTable(card) {
     
     UIManager.renderHand();
     UIManager.renderTable();
-    ui.notifications.info(`Played ${card.name}`);
     return true;
   } catch (error) {
     console.error("Error playing card:", error);
-    ui.notifications.error(`Failed to play card: ${error.message}`);
     UIManager.renderHand(); // Re-render to ensure UI is in sync
     return false;
   }
@@ -126,7 +114,6 @@ static async playSetToTable(setData, indicator) {
   const tablePile = getTablePile();
   
   if (!piles?.hand || !tablePile) {
-    ui.notifications.warn('Hand or table pile not available');
     return false;
   }
   
@@ -136,7 +123,6 @@ static async playSetToTable(setData, indicator) {
   // Get card IDs from the indicator
   const cardIds = indicator.dataset.cardIds.split(',');
   if (!cardIds || cardIds.length === 0) {
-    ui.notifications.warn("No cards found in the set");
     return false;
   }
 
@@ -150,7 +136,6 @@ static async playSetToTable(setData, indicator) {
   });
   
   if (hasUnassignedJoker) {
-    ui.notifications.warn("Please assign values to all jokers in the set before playing it (right-click on jokers)");
     return false;
   }
   
@@ -161,7 +146,6 @@ static async playSetToTable(setData, indicator) {
   if (actor) {
     const currentMP = actor.system.resources?.mp?.value || 0;
     if (currentMP < mpCost) {
-      ui.notifications.warn(`Not enough MP. Need ${mpCost}, have ${currentMP}`);
       return false;
     }
   }
@@ -211,12 +195,10 @@ static async playSetToTable(setData, indicator) {
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
     
-    ui.notifications.info(`Played ${setName} to table (${mpCost} MP)`);
     return true;
     
   } catch (error) {
     console.error("Error playing set:", error);
-    ui.notifications.error(`Failed to play set: ${error.message}`);
     UIManager.renderHand();
     return false;
   }
@@ -226,13 +208,11 @@ static async playSetToTable(setData, indicator) {
 static async cleanTable() {
   const tablePile = getTablePile();
   if (!tablePile) {
-    ui.notifications.warn('Table pile not available');
     return false;
   }
   
   const ids = tablePile.cards.map(c => c.id);
   if (!ids.length) {
-    ui.notifications.info('Table empty');
     return false;
   }
   
@@ -241,7 +221,6 @@ static async cleanTable() {
   for (const card of tablePile.cards) {
     const ownerId = card.getFlag(MODULE_ID, 'ownerId');
     if (!ownerId) {
-      ui.notifications.warn(`Card ${card.name} has no owner`);
       continue;
     }
     if (!cardsByOwner[ownerId]) cardsByOwner[ownerId] = [];
@@ -257,7 +236,6 @@ static async cleanTable() {
       // const ownerPiles = getPlayerPiles(ownerId);
       
       if (!ownerPiles?.discard) {
-        ui.notifications.warn(`No discard pile found for ${game.users.get(ownerId)?.name}`);
         continue;
       }
       
@@ -265,7 +243,6 @@ static async cleanTable() {
       await tablePile.pass(ownerPiles.discard, cardIds, { chatNotification: false });
     } catch (error) {
       console.error(`Error handling cards for player ${ownerId}:`, error);
-      ui.notifications.warn(`Failed to process cards for ${game.users.get(ownerId)?.name}`);
     }
   }
   
@@ -274,7 +251,6 @@ static async cleanTable() {
   UIManager.renderTable();
   SocketManager.emitCleanTable();
   
-  ui.notifications.info('Table cleared');
   return true;
 }
   
@@ -282,13 +258,11 @@ static async cleanTable() {
 static async resetHand() {
   const piles = getCurrentPlayerPiles();
   if (!piles?.hand) {
-    ui.notifications.warn('No hand assigned');
     return false;
   }
   
   const ids = piles.hand.cards.map(c => c.id);
   if (!ids.length) {
-    ui.notifications.info('Hand empty');
     return false;
   }
   
@@ -298,7 +272,6 @@ static async resetHand() {
   UIManager.cleanupAllTooltips();
   
   UIManager.renderHand();
-  ui.notifications.info('Hand reset');
   return true;
 }
   
@@ -306,7 +279,6 @@ static async resetHand() {
 static async activateTableSet(setData, playerId) {
   // Only the owner can activate their sets
   if (playerId !== game.userId) {
-    ui.notifications.warn("You can only activate your own sets");
     return false;
   }
   
@@ -349,7 +321,6 @@ static async activateTableSet(setData, playerId) {
     // Emit socket message and update UI
     SocketManager.emitSetActivated(setData.type, setData.cardIds);
     UIManager.renderTable();
-    ui.notifications.info(`Set activated and cards discarded`);
     
     return true;
   } catch (error) {
