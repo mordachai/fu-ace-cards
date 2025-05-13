@@ -480,49 +480,71 @@ export function getSetEffectDescription(setData) {
 
   // Calculate specific values for this set
   let effect = template.effect;
+
+  // Calculate proper values using the same logic as calculateDamageForSet
+  // Get values with special handling for jokers
+  const values = setData.cards.map(card => {
+    // Check if this is a joker with phantom value
+    const isJoker = card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker');
+    if (isJoker) {
+      const phantomValue = card.getFlag(MODULE_ID, 'phantomValue');
+      if (phantomValue) {
+        return parseInt(phantomValue);
+      }
+    }
+    // Otherwise use regular value
+    return getCardValue(card);
+  }).filter(v => !isNaN(v));
+
+  // Calculate totals using properly derived values
+  const totalValue = values.reduce((sum, val) => sum + val, 0);
+  const highestValue = Math.max(...values);
   
   // Replace placeholders with calculated values
   switch (setData.type) {
-    case 'magic-flush':
-      const magicDamage = 25 + setData.values.reduce((a, b) => a + b, 0);
+    case 'magic-flush': {
+      const magicDamage = 25 + totalValue;
       effect = effect.replace('【25 + the total value of the resolved cards】', `【${magicDamage}】`);
       break;
+    }
       
-    case 'blinding-flush':
-      const blindingDamage = 15 + setData.values.reduce((a, b) => a + b, 0);
-      const highestValue = Math.max(...setData.values);
+    case 'blinding-flush': {
+      const blindingDamage = 15 + totalValue;
       const damageType = highestValue % 2 === 0 ? 'light' : 'dark';
       effect = effect.replace('【15 + the total value of the resolved cards】', `【${blindingDamage}】`);
       effect = effect.replace('light if the highest value among those cards is even, or dark if that value is odd', 
-                              `${damageType} (highest value: ${highestValue})`);
+                            `${damageType} (highest value: ${highestValue})`);
       break;
+    }
       
-    case 'full-status':
-      const fullHighest = Math.max(...setData.values);
-      const statusEffect = fullHighest % 2 === 0 ? 'recover from' : 'suffer';
-      effect = effect.replace('【the highest value among resolved cards】', `【${fullHighest}】`);
+    case 'full-status': {
+      effect = effect.replace('【the highest value among resolved cards】', `【${highestValue}】`);
+      const statusEffect = highestValue % 2 === 0 ? 'recover from' : 'suffer';
       effect = effect.replace('if even, you and every ally present on the scene recover from the chosen status effects; if odd, each enemy present on the scene suffers them',
                               `allies will ${statusEffect} the chosen status effects`);
       break;
+    }
       
-    case 'triple-support':
-      const totalValue = setData.values.reduce((a, b) => a + b, 0);
+    case 'triple-support': {
       const healAmount = totalValue * 3;
       effect = effect.replace('【the total value of the resolved cards, multiplied by 3】', `【${healAmount}】`);
       break;
+    }
       
-    case 'double-trouble':
-      const doubleDamage = 10 + Math.max(...setData.values);
+    case 'double-trouble': {
+      const doubleDamage = 10 + highestValue;
       effect = effect.replace('【10 + the highest value among resolved cards】', `【${doubleDamage}】`);
       break;
+    }
       
-    case 'forbidden-monarch':
-      const commonValue = setData.value;
+    case 'forbidden-monarch': {
+      const commonValue = values[0]; // Since all should be the same value except joker
       const forbiddenType = commonValue % 2 === 0 ? 'light' : 'dark';
       effect = effect.replace('【the common value of the 4 cards】', `【${commonValue}】`);
       effect = effect.replace('light if 【the common value of the 4 cards】 is even, or dark if that total is odd',
                               `${forbiddenType} damage`);
       break;
+    }
   }
   
   return {

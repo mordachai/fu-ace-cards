@@ -15,11 +15,22 @@
   <div class="chat-desc">
     <details open>
       <summary class="collapsible-description align-center">Cards</summary>
-      <div class="fu-chat-cards-container">
-        {{#each cards}}
-          <img src="{{this.img}}" class="fu-chat-card-img" {{#if @index}}style="margin-left: -40px;"{{/if}} title="{{this.name}}">
-        {{/each}}
+        <div class="fu-chat-cards-container">
+          {{#each cards}}
+            <img src="{{this.img}}" 
+                class="fu-chat-card-img {{#if ../isDoubleTrouble}}fu-card-clickable{{/if}}" 
+                {{#if @index}}style="margin-left: -40px;"{{/if}} 
+                title="{{this.name}}"
+                data-card-id="{{this.id}}"
+                data-card-suit="{{this.suit}}"
+                data-card-index="{{@index}}">
+          {{/each}}
+        </div>
+      {{#if debugInfo}}
+      <div class="debug-info" style="font-size: 10px; color: #7b0606; margin-top: 5px;">
+        Debug: Highest Value = {{highestValue}} ({{#if isEven}}Even{{else}}Odd{{/if}})
       </div>
+      {{/if}}
       <div class="fu-combo-description" style="text-align: center; margin-top: 10px; font-style: italic;">
         {{comboDescription}}
       </div>
@@ -77,8 +88,17 @@
   
   {{#if hasDamage}}
   <div class="fu-tags flexrow gap-5">
-    <a data-action="applyDamageSelected" data-damage-type="{{damageType}}" data-damage-value="{{damageValue}}" data-set-type="{{setType}}" data-tooltip="Click to apply damage to targeted tokens.<br />[Ctrl + Click] to Open Damage Customizer<br />[Shift + Click] to ignore Resistances.<br />[Ctrl + Shift] + Click to ignore Resistances and Immunities.">
-      <span class="fu-tag button flex-group-center gap-5" style="width:100%;white-space:nowrap">Apply to targeted tokens<i class="icon fas fa-heart-crack"></i></span>
+    <a data-action="applyDamageSelected" 
+      data-damage-type="{{#unless isDoubleTrouble}}{{damageType}}{{/unless}}" 
+      data-damage-value="{{damageValue}}" 
+      data-set-type="{{setType}}" 
+      data-player-id="{{playerId}}"
+      class="{{#if isDoubleTrouble}}damage-pending{{/if}}"
+      data-tooltip="{{#if isDoubleTrouble}}Select a card to choose damage type.{{else}}Click to apply damage to targeted tokens.<br />[Shift + Click] to ignore Resistances.<br />[Ctrl + Shift] + Click to ignore Resistances and Immunities.{{/if}}">
+      <span class="fu-tag button flex-group-center gap-5" style="width:100%;white-space:nowrap">
+        {{#if isDoubleTrouble}}Select damage type{{else}}Apply to targeted tokens{{/if}}
+        <i class="icon fas fa-heart-crack"></i>
+      </span>
     </a>
   </div>
   {{/if}}

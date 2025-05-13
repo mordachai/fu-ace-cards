@@ -22,6 +22,11 @@ let playerDecks = {};
 let tablePile = null;
 let activeTooltips = new Set();
 
+window.capitalize = function(string) {
+  if (!string) return '';
+  return string.charAt(0).toUpperCase() + string.slice(1);
+};
+
 // Export function to get current player's piles
 export function getCurrentPlayerPiles() {
   return playerDecks[game.userId];
@@ -58,6 +63,262 @@ function cleanupAllTooltips() {
   clearHighlights();
 }
 
+function openJokerDialog(jokerCard) {
+  // Get currently set values if any
+  const currentSuit = jokerCard.getFlag(MODULE_ID, 'phantomSuit') || '';
+  const currentValue = jokerCard.getFlag(MODULE_ID, 'phantomValue') || '';
+
+  // Define suit data
+  const suits = [
+    { value: 'hearts', symbol: '♥️', element: 'Fire', color: '#e51c23' },
+    { value: 'diamonds', symbol: '♦️', element: 'Air', color: '#e91e63' },
+    { value: 'clubs', symbol: '♣️', element: 'Earth', color: '#212121' },
+    { value: 'spades', symbol: '♠️', element: 'Ice', color: '#212121' }
+  ];
+
+  // Setup styles for our radio buttons
+  const style = `
+    <style>
+      .joker-radio-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0;
+        justify-content: center;
+      }
+      .suit-option {
+        width: 60px;
+        height: 80px;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .suit-option:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      }
+      .suit-option.selected {
+        border-color: gold;
+        box-shadow: 0 0 8px gold;
+        transform: translateY(-3px);
+      }
+      .suit-symbol {
+        font-size: 24px;
+        margin-bottom: 5px;
+      }
+      .suit-element {
+        font-size: 10px;
+        color: #666;
+        text-align: center;
+      }
+      .value-option {
+        width: 30px;
+        height: 40px;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: bold;
+        transition: all 0.2s;
+        background: white;
+      }
+      .value-option:hover {
+        background: #f5f5f5;
+        transform: translateY(-2px);
+      }
+      .value-option.selected {
+        border-color: gold;
+        background: #fffacd;
+      }
+      .section-label {
+        width: 100%;
+        text-align: center;
+        font-weight: bold;
+        margin-top: 10px;
+        color: #444;
+      }
+    </style>
+  `;
+
+  // Create the content with card-style radio groups
+  let content = `
+    ${style}
+    <form>
+      <div class="section-label">Select Suit</div>
+      <div class="joker-radio-group" id="suit-group">
+        ${suits.map(suit => `
+          <div class="suit-option ${currentSuit === suit.value ? 'selected' : ''}" 
+               data-value="${suit.value}">
+            <div class="suit-symbol" style="color: ${suit.color}">${suit.symbol}</div>
+            <div class="suit-element">【${suit.element}】</div>
+          </div>
+        `).join('')}
+      </div>
+      
+      <div class="section-label">Select Value</div>
+      <div class="joker-radio-group" id="value-group">
+        ${Array.from({ length: 7 }, (_, i) => i + 1).map(value => `
+          <div class="value-option ${currentValue == value ? 'selected' : ''}" data-value="${value}">
+            ${value}
+          </div>
+        `).join('')}
+      </div>
+      
+      <input type="hidden" id="selected-suit" name="selected-suit" value="${currentSuit}">
+      <input type="hidden" id="selected-value" name="selected-value" value="${currentValue}">
+    </form>
+    
+    <script>
+      // Add click handlers once dialog is rendered
+      setTimeout(() => {
+        // Suit selection
+        document.querySelectorAll('#suit-group .suit-option').forEach(option => {
+          option.addEventListener('click', () => {
+            // Remove selected class from all options
+            document.querySelectorAll('#suit-group .suit-option').forEach(opt => {
+              opt.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked option
+            option.classList.add('selected');
+            
+            // Update hidden input
+            document.getElementById('selected-suit').value = option.dataset.value;
+          });
+        });
+        
+        // Value selection
+        document.querySelectorAll('#value-group .value-option').forEach(option => {
+          option.addEventListener('click', () => {
+            // Remove selected class from all options
+            document.querySelectorAll('#value-group .value-option').forEach(opt => {
+              opt.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked option
+            option.classList.add('selected');
+            
+            // Update hidden input
+            document.getElementById('selected-value').value = option.dataset.value;
+          });
+        });
+      }, 50);
+    </script>
+  `;
+
+  new Dialog({
+    title: "🃏 Assign Joker Values",
+    content: content,
+    buttons: {
+      assign: {
+        icon: '<i class="fas fa-check"></i>',
+        label: "Assign",
+        callback: async html => {
+          const suit = html.find('#selected-suit').val();
+          const value = parseInt(html.find('#selected-value').val());
+          
+          // Only proceed if both values are valid
+          if (!suit || isNaN(value)) {
+            ui.notifications.warn("Please select both a suit and a value");
+            return;
+          }
+          
+          // Save the phantom values on the card
+          await jokerCard.setFlag(MODULE_ID, 'phantomSuit', suit);
+          await jokerCard.setFlag(MODULE_ID, 'phantomValue', value);
+          
+          // Show notification
+          ui.notifications.info(`Joker set as ${value} of ${window.capitalize(suit)}`);
+          
+          // Update the UI
+          window.FuAceCards.showHandArea();
+          window.FuAceCards.renderHand();
+          
+          // Update set info
+          const piles = window.FuAceCards.getCurrentPlayerPiles();
+          if (piles?.hand) {
+            window.FuAceCards.updateSetInfoBar(
+              Array.from(piles.hand.cards), 
+              'hand', 
+              window.FuAceCards.handleHandSetClick
+            );
+          }
+        }
+      },
+      clear: {
+        icon: '<i class="fas fa-eraser"></i>',
+        label: "Clear",
+        callback: async () => {
+          // Remove phantom values
+          await jokerCard.unsetFlag(MODULE_ID, 'phantomSuit');
+          await jokerCard.unsetFlag(MODULE_ID, 'phantomValue');
+          
+          // Show notification
+          ui.notifications.info("Joker value cleared");
+          
+          // Update UI
+          window.FuAceCards.showHandArea();
+          window.FuAceCards.renderHand();
+          
+          // Update set info
+          const piles = window.FuAceCards.getCurrentPlayerPiles();
+          if (piles?.hand) {
+            window.FuAceCards.updateSetInfoBar(
+              Array.from(piles.hand.cards), 
+              'hand', 
+              window.FuAceCards.handleHandSetClick
+            );
+          }
+        }
+      },
+      cancel: {
+        icon: '<i class="fas fa-times"></i>',
+        label: "Cancel",
+        callback: () => {
+          // Refresh UI
+          window.FuAceCards.showHandArea();
+          window.FuAceCards.renderHand();
+          
+          const piles = window.FuAceCards.getCurrentPlayerPiles();
+          if (piles?.hand) {
+            window.FuAceCards.updateSetInfoBar(
+              Array.from(piles.hand.cards), 
+              'hand', 
+              window.FuAceCards.handleHandSetClick
+            );
+          }
+        }
+      }
+    },
+    default: "assign",
+    close: () => {
+      // In case dialog is closed without button press
+      window.FuAceCards.showHandArea();
+      window.FuAceCards.renderHand();
+      
+      const piles = window.FuAceCards.getCurrentPlayerPiles();
+      if (piles?.hand) {
+        window.FuAceCards.updateSetInfoBar(
+          Array.from(piles.hand.cards), 
+          'hand', 
+          window.FuAceCards.handleHandSetClick
+        );
+      }
+    },
+    width: 300 // Make dialog narrower to match content
+  }).render(true);
+}
+
 Hooks.once('init', () => {
   console.log(`${MODULE_ID} | Initializing module`);
   DeckManager.init();
@@ -66,12 +327,7 @@ Hooks.once('init', () => {
   // Register Handlebars helper for equality check
   Handlebars.registerHelper('eq', function(a, b) {
     return a === b;
-  });
-  
-  // Add capitalize helper for string formatting
-  String.prototype.capitalize = function() {
-    return this.charAt(0).toUpperCase() + this.slice(1);
-  };
+  }); 
 });
 
 Hooks.once('ready', async () => {
@@ -256,6 +512,27 @@ Hooks.once('ready', async () => {
     // Hide tooltip immediately when clicking
     hideSetTooltip(indicator);
     cleanupAllTooltips();
+
+    // Get card IDs from the indicator
+    const cardIds = indicator.dataset.cardIds.split(',');
+    if (!cardIds || cardIds.length === 0) {
+      ui.notifications.warn("No cards found in the set");
+      return;
+    }
+
+    // Check if set contains unassigned jokers
+    const hasUnassignedJoker = cardIds.some(cardId => {
+      const card = piles.hand.cards.get(cardId);
+      if (!card) return false;
+      
+      const isJoker = card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker');
+      return isJoker && (!card.getFlag(MODULE_ID, 'phantomSuit') || !card.getFlag(MODULE_ID, 'phantomValue'));
+    });
+    
+    if (hasUnassignedJoker) {
+      ui.notifications.warn("Please assign values to all jokers in the set before playing it (right-click on jokers)");
+      return;
+    }
     
     // Double-check we can still afford it
     const mpCost = parseInt(indicator.dataset.mpCost);
@@ -269,7 +546,6 @@ Hooks.once('ready', async () => {
       }
     }
     
-    const cardIds = indicator.dataset.cardIds.split(',');
     const setType = indicator.dataset.setType;
     
     try {
@@ -279,13 +555,27 @@ Hooks.once('ready', async () => {
           throw new Error(`Card ${cardId} no longer in hand`);
         }
         
+        // Get card before passing to preserve any flags
+        const handCard = piles.hand.cards.get(cardId);
+        
+        // Pass the card to the table
         await piles.hand.pass(tablePile, [cardId], { chatNotification: false });
         
         // Set owner flag on the card AFTER successful pass
         const tableCard = tablePile.cards.get(cardId);
         if (tableCard) {
+          // Set basic flags
           await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
           await tableCard.setFlag(MODULE_ID, 'setType', setType);
+          
+          // If it's a joker, also transfer the phantom values
+          if (handCard.name.toLowerCase().includes('joker') || handCard.getFlag(MODULE_ID, 'isJoker')) {
+            const phantomSuit = handCard.getFlag(MODULE_ID, 'phantomSuit');
+            const phantomValue = handCard.getFlag(MODULE_ID, 'phantomValue');
+            
+            if (phantomSuit) await tableCard.setFlag(MODULE_ID, 'phantomSuit', phantomSuit);
+            if (phantomValue) await tableCard.setFlag(MODULE_ID, 'phantomValue', phantomValue);
+          }
         }
       }
       
@@ -297,11 +587,19 @@ Hooks.once('ready', async () => {
         playerId: game.userId
       });
       
+      // Update UI
       renderHand();
       renderTable();
-      ui.notifications.info(`Played ${SET_NAMES[setType]} to table (${mpCost} MP)`);
+      
+      // Show notification
+      const setName = SET_NAMES[setType] || setType.replace('-', ' ').split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+      
+      ui.notifications.info(`Played ${setName} to table (${mpCost} MP)`);
       
     } catch (error) {
+      console.error("Error playing set:", error);
       ui.notifications.error(`Failed to play set: ${error.message}`);
       renderHand();
     }
@@ -378,9 +676,27 @@ Hooks.once('ready', async () => {
     
     // Calculate damage if this set type deals damage
     const damageData = calculateDamageForSet(setData);
+
+    // Add flag for sets that need damage type selection
+    const isDoubleTrouble = setData.type === 'double-trouble';
+    // For future implementation: const isMagicPair = setData.type === 'magic-pair';
+    
+    // Get suit information for each card
+    const cardsWithSuits = setData.cards.map(card => ({
+        id: card.id,
+        name: card.name,
+        img: card.faces[card.face ?? 0]?.img,
+        suit: getCardSuit(card) // Make sure this extracts the suit properly
+    }));
+
+    // Get available damage types (suits) for this set
+    const availableSuits = [...new Set(cardsWithSuits.map(c => c.suit))];
     
     // Prepare data for template
     const templateData = {
+      debugInfo: game.user.isGM && game.settings.get(MODULE_ID, 'debug'), // Only if you have a debug setting
+      highestValue: damageData?.highestValue || highestValue,
+      isEven: (damageData?.highestValue || highestValue) % 2 === 0,
       setType: setData.type,
       setName: SET_NAMES[setData.type],
       playerName: displayName,
@@ -393,10 +709,13 @@ Hooks.once('ready', async () => {
         name: card.name,
         img: card.faces[card.face ?? 0]?.img
       })),
+      isDoubleTrouble: isDoubleTrouble,
+      cards: cardsWithSuits,
+      availableSuits: availableSuits,
       hasDamage: damageData !== null,
       damageValue: damageData?.value || 0,
       damageType: damageData?.type || '',
-      damageTypeLabel: damageData?.type ? game.i18n.localize(`FU.Damage${damageData.type.capitalize()}`) : '',
+      damageTypeLabel: damageData?.type ? game.i18n.localize(`FU.Damage${window.capitalize(damageData.type)}`) : '',
       highRoll: damageData?.highRoll || 0,
       baseDamage: damageData?.baseDamage || 0
     };
@@ -407,11 +726,25 @@ Hooks.once('ready', async () => {
   
   // Calculate damage value and type for a given set
   function calculateDamageForSet(setData) {
-    if (!setData || !setData.values || !setData.cards) return null;
-    
-    // Get total value of all cards
-    const totalValue = setData.values.reduce((sum, val) => sum + val, 0);
-    const highestValue = Math.max(...setData.values);
+    if (!setData || !setData.cards) return null;
+
+    // Get values with special handling for jokers
+    const values = setData.cards.map(card => {
+      // Check if this is a joker with phantom value
+      const isJoker = card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker');
+      if (isJoker) {
+        const phantomValue = card.getFlag(MODULE_ID, 'phantomValue');
+        if (phantomValue) {
+          return parseInt(phantomValue);
+        }
+      }
+      // Otherwise use regular value
+      return getCardValue(card);
+    }).filter(v => !isNaN(v));
+
+    // Calculate totals using the properly derived values
+    const totalValue = values.reduce((sum, val) => sum + val, 0);
+    const highestValue = Math.max(...values);
     
     // Map suits to damage types
     const suitToDamageType = {
@@ -443,13 +776,15 @@ Hooks.once('ready', async () => {
       case 'blinding-flush': {
         // 4 cards of consecutive values
         // Damage: 15 + total value, light if highest is even, dark if odd
+        // Use the highest value we calculated with joker consideration
         const damageType = highestValue % 2 === 0 ? 'light' : 'dark';
         
         return {
           value: 15 + totalValue,
           type: damageType,
           highRoll: totalValue,
-          baseDamage: 15
+          baseDamage: 15,
+          highestValue: highestValue // Store for debugging/display
         };
       }
       case 'double-trouble': {
@@ -469,14 +804,16 @@ Hooks.once('ready', async () => {
       case 'forbidden-monarch': {
         // 4 cards of same value + 1 joker
         // Damage: 777, light if common value is even, dark if odd
-        const commonValue = setData.value || setData.values[0];
+        // Use the values we got above which correctly handle jokers
+        const commonValue = values[0]; // Since all should be the same value except joker
         const damageType = commonValue % 2 === 0 ? 'light' : 'dark';
         
         return {
           value: 777,
           type: damageType,
           highRoll: 0,
-          baseDamage: 777
+          baseDamage: 777,
+          commonValue: commonValue // Store for debugging/display
         };
       }
       default:
@@ -518,12 +855,31 @@ Hooks.once('ready', async () => {
       // Apply player color
       applyPlayerColor(d, c);
       
-      // Add tooltip
-      const tooltip = createCardTooltip(c);
-      if (tooltip) {
-        d.dataset.tooltip = tooltip;
+      // Check if this is a joker with phantom values
+      const isJoker = c.name.toLowerCase().includes('joker') || c.getFlag(MODULE_ID, 'isJoker');
+      
+      if (isJoker && c.getFlag(MODULE_ID, 'phantomSuit') && c.getFlag(MODULE_ID, 'phantomValue')) {
+        const phantomSuit = c.getFlag(MODULE_ID, 'phantomSuit');
+        const phantomValue = c.getFlag(MODULE_ID, 'phantomValue');
+        
+        // Add data attributes for styling - READ ONLY
+        d.classList.add('fu-joker-card-table'); // Different class to style differently
+        d.dataset.phantomSuit = phantomSuit;
+        d.dataset.phantomValue = phantomValue;
+        
+        // Add tooltip showing the phantom card it represents
+        const suitSymbols = { 'hearts': '♥', 'diamonds': '♦', 'clubs': '♣', 'spades': '♠' };
+        const suitSymbol = suitSymbols[phantomSuit] || '';
+        d.dataset.tooltip = `Joker as ${phantomValue} of ${window.capitalize(phantomSuit)} ${suitSymbol}`;
+      } else {
+        // Regular tooltip
+        const tooltip = createCardTooltip(c);
+        if (tooltip) {
+          d.dataset.tooltip = tooltip;
+        }
       }
       
+      // Add to the container
       container.appendChild(d);
     }
     
@@ -552,10 +908,42 @@ Hooks.once('ready', async () => {
       d.className = 'fu-card';
       d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
       d.dataset.cardId = c.id;
+
+      // Check if this is a joker card
+  const isJoker = c.name.toLowerCase().includes('joker') || c.getFlag(MODULE_ID, 'isJoker');
+  
+  if (isJoker) {
+    // Add joker class and attributes
+    d.classList.add('fu-joker-card');
+    
+    // Get any previously set phantom values
+    const phantomSuit = c.getFlag(MODULE_ID, 'phantomSuit');
+    const phantomValue = c.getFlag(MODULE_ID, 'phantomValue');
+    
+    if (phantomSuit && phantomValue) {
+        // If joker already has phantom values, show them
+        d.dataset.phantomSuit = phantomSuit;
+        d.dataset.phantomValue = phantomValue;
+        
+        // Add tooltip showing the phantom card it represents
+        const suitSymbols = { 'hearts': '♥', 'diamonds': '♦', 'clubs': '♣', 'spades': '♠' };
+        const suitSymbol = suitSymbols[phantomSuit] || '';
+        d.dataset.tooltip = `Joker as ${phantomValue} of ${window.capitalize(phantomSuit)} ${suitSymbol}`;
+    } else {
+        // If no phantom values yet, tooltip indicates it needs assignment
+        d.dataset.tooltip = "Right-click to assign suit and value";
+    }
       
-      // Add tooltip for hand cards
-      d.dataset.tooltip = c.name;
-      
+        // Add right-click handler for joker cards - ONLY IN HAND
+        d.addEventListener('contextmenu', (event) => {
+            event.preventDefault();
+            openJokerDialog(c);
+          });
+        } else {
+          // Regular card tooltip
+          d.dataset.tooltip = c.name;
+        } 
+
       // Play a single card from hand to table
       d.addEventListener('click', async () => {
         // Validate the card is still in hand before attempting to pass
@@ -563,6 +951,13 @@ Hooks.once('ready', async () => {
           ui.notifications.warn('Card no longer in hand');
           renderHand();
           return;
+        }
+
+        // Check if this is a joker without assigned values
+        const isJoker = c.name.toLowerCase().includes('joker') || c.getFlag(MODULE_ID, 'isJoker');
+          if (isJoker && (!c.getFlag(MODULE_ID, 'phantomSuit') || !c.getFlag(MODULE_ID, 'phantomValue'))) {
+            ui.notifications.warn("Please assign a suit and value to the joker before playing it (right-click)");
+            return; // Prevent playing unassigned joker
         }
         
         // Clean up tooltips before moving cards
@@ -599,7 +994,7 @@ Hooks.once('ready', async () => {
       updateSetInfoBar(Array.from(hand.cards), 'hand', handleHandSetClick);
     }
   }
-
+  
   // Handle clicking a set indicator in hand
   function handleHandSetClick(indicator) {
     // Only handle clicks on available sets
@@ -741,9 +1136,112 @@ Hooks.once('ready', async () => {
     cleanupAllTooltips();
   });
 
-  // Handle the MP spending and damage application buttons in chat messages
   Hooks.on('renderChatMessage', (message, html) => {
-    // Handle MP spending button
+  // Check if this is a card set message
+  const messageContent = html.find('.fu-chat-cards-container');
+  if (messageContent.length > 0) {
+    // Check if this is a Double Trouble set specifically
+    const isDoubleTrouble = html.find('[data-set-type="double-trouble"]').length > 0;
+    
+    if (isDoubleTrouble) {
+      // Find the cards in this message
+      const cardImages = html.find('.fu-chat-card-img');
+      
+      // Add clickable class to all cards
+      cardImages.addClass('fu-card-clickable');
+      
+      // Define the mapping for damage types to icon classes
+      // THIS WAS MISSING IN YOUR CODE
+      const damageTypeToIconClass = {
+        'fire': 'fu-fire',
+        'air': 'fu-wind',   // Special case: air damage uses fu-wind icon class
+        'earth': 'fu-earth',
+        'ice': 'fu-ice',
+        'light': 'fu-light',
+        'dark': 'fu-dark'
+      };
+      
+      // Add click handler to each card
+      cardImages.on('click', function(event) {
+        // Rest of your code is correct...
+        
+        // Get the suit from the card's data or from the card name if not set
+        const cardElement = $(this);
+        let cardSuit = cardElement.data('card-suit');
+        
+        // If suit data not directly available, try to extract from the card name
+        if (!cardSuit) {
+          const cardName = cardElement.attr('title') || '';
+          // Extract suit from name (hearts, diamonds, clubs, spades)
+          const suitMatch = cardName.toLowerCase().match(/(heart|diamond|club|spade)s?/);
+          cardSuit = suitMatch ? suitMatch[0] : '';
+        }
+        
+        // Map suit to damage type based on the standard mapping
+        const suitToDamageType = {
+          'hearts': 'fire',
+          'heart': 'fire',
+          'diamonds': 'air',
+          'diamond': 'air',
+          'clubs': 'earth',
+          'club': 'earth',
+          'spades': 'ice',
+          'spade': 'ice'
+        };
+        
+        const damageType = suitToDamageType[cardSuit.toLowerCase()] || cardSuit;
+        
+        // Remove selected class from any previously selected card
+        cardImages.removeClass('fu-selected-card');
+        
+        // Add selected class to this card
+        cardElement.addClass('fu-selected-card');
+        
+        // Update the damage button with the selected damage type
+        const damageButton = html.find('[data-action="applyDamageSelected"]');
+        if (damageButton.length) {
+          // Update damage type attribute
+          damageButton.attr('data-damage-type', damageType);
+          
+          // Get a display name for the damage type
+          const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || damageType.toUpperCase();
+          
+          // Update the button text
+          damageButton.find('span').html(`Apply ${damageTypeDisplay} damage <i class="icon fas fa-heart-crack"></i>`);
+        }
+        
+        // Update the system's damage label (the one you shared in the DOM)
+        const damageLabel = html.find('.damageType');
+        if (damageLabel.length) {
+          // Remove existing damage type classes
+          damageLabel.removeClass('fire ice earth air light dark');
+          
+          // Add the new damage type class
+          damageLabel.addClass(damageType);
+          
+          // Update tooltip for endcap
+          const endcap = damageLabel.find('.endcap');
+          if (endcap.length) {
+            const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
+                                    damageType.charAt(0).toUpperCase() + damageType.slice(1);
+            endcap.attr('data-tooltip', damageTypeDisplay);
+            
+            // Use the correct icon class based on damage type
+            const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;
+            endcap.html(`<i class="fua ${iconClass}"></i>`);
+          }
+        }
+      });
+      
+      // Initialize the apply damage button to indicate selection is needed
+      const damageButton = html.find('[data-action="applyDamageSelected"]');
+      if (damageButton.length) {
+        damageButton.find('span').html(`Select damage type <i class="icon fas fa-heart-crack"></i>`);
+      }
+    }
+  }
+    
+    // Handle MP spending button (existing code)
     html.find('[data-action="applyResourceLoss"]').click(async (event) => {
       event.preventDefault();
       const button = event.currentTarget;
@@ -769,77 +1267,98 @@ Hooks.once('ready', async () => {
       }
     });
     
-    // Handle damage application button
+    // Handle damage application button (your existing code)
     html.find('[data-action="applyDamageSelected"]').click(async (event) => {
-        event.preventDefault();
-        const button = event.currentTarget;
-        const damageType = button.dataset.damageType;
-        const damageValue = parseInt(button.dataset.damageValue);
-        const setType = button.dataset.setType;
-        const playerId = button.dataset.playerId;
-        
-        // Get targeted tokens (for enemies)
-        const targetedTokens = Array.from(game.user.targets);
-        if (targetedTokens.length === 0) {
-            ui.notifications.warn("No targets selected. Use the targeting tool to target enemies.");
-            return;
-        }
-        
-        // Get target actors from tokens
-        const targets = targetedTokens.map(token => token.actor).filter(Boolean);
-        
-        // Get source actor - try to find a valid source
-        let sourceActor = null;
-        
-        // First try to get the character from the player ID
-        if (playerId) {
-            const player = game.users.get(playerId);
-            if (player && player.character) {
-                sourceActor = player.character;
-            }
-        }
-        
-        // If we couldn't find the source actor from player ID, try the current user
-        if (!sourceActor && game.user.character) {
-            sourceActor = game.user.character;
-        }
-        
-        // If we still don't have a source actor, use a basic object
-        if (!sourceActor) {
-            sourceActor = {
-                name: "Card Effect",
-                id: "card-effect",
-                // Minimal implementation to prevent errors
-                get uuid() { return "fu-ace-cards.card-effect"; }
-            };
-        }
-        
-        // Determine traits based on event modifiers and set type
-        const traits = [];
-        if (event.shiftKey) traits.push('ignoreResistances');
-        if (event.ctrlKey && event.shiftKey) traits.push('ignoreImmunities');
-        if (setType === 'forbidden-monarch') {
-            traits.push('ignoreResistances');
-            traits.push('ignoreImmunities');
-        }
-        
-        try {
-            // Use our integration to apply damage
-            const result = await DamageIntegration.applyDamage(
-                damageType,
-                damageValue,
-                sourceActor,
-                targets,
-                traits
-            );
-            
-            // Disable the button after application (regardless of method)
-            button.classList.add("disabled");
-            $(button).find("span").text(`Damage Applied (${damageValue})`);
-        } catch (error) {
-            console.error("Error applying damage:", error);
-            ui.notifications.error("Failed to apply damage: " + error.message);
-        }
+      event.preventDefault();
+      const button = event.currentTarget;
+      const damageType = button.dataset.damageType;
+      const damageValue = parseInt(button.dataset.damageValue);
+      const setType = button.dataset.setType;
+      const playerId = button.dataset.playerId;
+      
+      // For Double Trouble, verify a card has been selected
+      if (setType === 'double-trouble' && !html.find('.fu-selected-card').length) {
+        ui.notifications.warn("Please select a card to determine damage type first.");
+        return;
+      }
+      
+      // Get targeted tokens (for enemies)
+      const targetedTokens = Array.from(game.user.targets);
+      if (targetedTokens.length === 0) {
+        ui.notifications.warn("No targets selected. Use the targeting tool to target enemies.");
+        return;
+      }
+      
+      // Rest of your existing damage application code...
+      // Get target actors from tokens
+      const targets = targetedTokens.map(token => token.actor).filter(Boolean);
+      
+      // Get source actor - try to find a valid source
+      let sourceActor = null;
+      
+      // First try to get the character from the player ID
+      if (playerId) {
+          const player = game.users.get(playerId);
+          if (player && player.character) {
+              sourceActor = player.character;
+          }
+      }
+      
+      // If we couldn't find the source actor from player ID, try the current user
+      if (!sourceActor && game.user.character) {
+          sourceActor = game.user.character;
+      }
+      
+      // If we still don't have a source actor, use a basic object
+      if (!sourceActor) {
+          sourceActor = {
+              name: "Card Effect",
+              id: "card-effect",
+              // Minimal implementation to prevent errors
+              get uuid() { return "fu-ace-cards.card-effect"; }
+          };
+      }
+      
+      // Determine traits based on event modifiers and set type
+      const traits = [];
+      if (event.shiftKey) traits.push('ignoreResistances');
+      if (event.ctrlKey && event.shiftKey) traits.push('ignoreImmunities');
+      if (setType === 'forbidden-monarch') {
+          traits.push('ignoreResistances');
+          traits.push('ignoreImmunities');
+      }
+      
+      try {
+          // Use our integration to apply damage with better error handling
+          const result = await DamageIntegration.applyDamage(
+              damageType,
+              damageValue,
+              sourceActor,
+              targets,
+              traits
+          ).catch(error => {
+              console.error("Error in damage pipeline:", error);
+              // Create a fallback damage text message if the pipeline fails
+              ui.notifications.warn("Damage pipeline error. Applied damage directly.");
+              
+              // Apply damage directly to HP as a fallback
+              for (const target of targets) {
+                  const hpValue = target.system.resources.hp.value;
+                  target.update({
+                      "system.resources.hp.value": Math.max(0, hpValue - damageValue)
+                  });
+              }
+              
+              return { applied: true, fallback: true };
+          });
+          
+          // Disable the button after application (regardless of method)
+          button.classList.add("disabled");
+          $(button).find("span").text(`Damage Applied (${damageValue})`);
+      } catch (error) {
+          console.error("Error applying damage:", error);
+          ui.notifications.error("Failed to apply damage: " + error.message);
+      }
     });
   });
 
@@ -923,5 +1442,24 @@ Hooks.once('ready', async () => {
   // Initial render
   renderTable();
   renderHand();
+
+  window.FuAceCards = {
+    renderHand: renderHand,
+    renderTable: renderTable,
+    updateSetInfoBar: updateSetInfoBar,
+    handleHandSetClick: handleHandSetClick,
+    getCurrentPlayerPiles: getCurrentPlayerPiles,
+    showHandArea: function() {
+      const handArea = document.getElementById('fu-hand-area');
+      if (handArea) {
+        handArea.classList.add('open');
+        clearTimeout(handArea._drawerTimeout);
+        handArea._drawerTimeout = setTimeout(() => {
+          handArea.classList.remove('open');
+        }, 10000);
+      }
+    }
+  };
+  
   console.log(`${MODULE_ID} | Ready`);
 });
