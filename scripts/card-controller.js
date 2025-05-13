@@ -13,31 +13,78 @@ export class CardController {
   
 // Draw a card from deck to hand
 static async drawCard() {
-const piles = PileManager.getCurrentPlayerPiles();
-if (!piles?.deck) {
+  const piles = PileManager.getCurrentPlayerPiles();
+  
+  // Check if deck exists
+  if (!piles?.deck) {
+    console.error(`${MODULE_ID} | Cannot draw: No deck assigned`);
     return false;
-}
+  }
 
-if (piles.deck.cards.size === 0) {
-    
+  // Let's first check how many AVAILABLE cards we have (with drawn=false)
+  const availableCards = Array.from(piles.deck.cards).filter(c => !c.drawn);
+  console.log(`${MODULE_ID} | Deck has ${piles.deck.cards.size} total cards, ${availableCards.length} available for drawing`);
+  
+  // If no available cards, we need to reshuffle from discard
+  if (availableCards.length === 0) {
     // Check if discard has cards to reshuffle
     if (piles.discard && piles.discard.cards.size > 0) {
-    await piles.discard.reset({ shuffle: true });
-    // Try again after reshuffling
-    return this.drawCard();
+      const discardSize = piles.discard.cards.size;
+      // Keep this notification - it's the auto-reshuffling we want to notify about
+      ui.notifications.info(`Deck empty! Reshuffling ${discardSize} cards from discard pile into deck...`);
+      
+      try {
+        // The safest approach is to use the built-in pile functions
+        // This moves all cards from discard to deck and shuffles
+        await piles.discard.pass(piles.deck, Array.from(piles.discard.cards).map(c => c.id), {
+          chatNotification: false
+        });
+        
+        // After moving the cards, we need to reset their drawn status
+        // We have to use the foundry method to update cards properly
+        const deckCards = Array.from(piles.deck.cards);
+        if (deckCards.length > 0) {
+          const updates = deckCards.map(card => ({
+            _id: card.id,
+            drawn: false  // Set all cards as available
+          }));
+          
+          // Apply updates as a single operation
+          await piles.deck.updateEmbeddedDocuments("Card", updates);
+          
+          // Shuffle the deck
+          await piles.deck.shuffle();
+          
+          console.log(`${MODULE_ID} | Reshuffled ${updates.length} cards from discard into deck`);
+        }
+        
+        // Try drawing again after reshuffling
+        return this.drawCard();
+      } catch (error) {
+        console.error(`${MODULE_ID} | Error reshuffling:`, error);
+        return false;
+      }
+    } else {
+      console.log(`${MODULE_ID} | Cannot draw: Deck empty and no cards in discard`);
+      return false;
     }
-    
-    return false;
-}
+  }
 
-try {
-    await piles.deck.deal([piles.hand], 1, { how: CONST.CARD_DRAW_MODES.RANDOM, chatNotification: false });
+  // If we reach here, we have available cards to draw
+  try {
+    // Draw one card to hand
+    await piles.deck.deal([piles.hand], 1, { 
+      how: CONST.CARD_DRAW_MODES.RANDOM, 
+      chatNotification: false 
+    });
+    
+    // Update UI
     UIManager.renderHand();
     return true;
-} catch (error) {
+  } catch (error) {
     console.error(`${MODULE_ID} | Error drawing card:`, error);
     return false;
-}
+  }
 }
 
 // Discard a specific card from hand
@@ -146,6 +193,8 @@ static async playSetToTable(setData, indicator) {
   if (actor) {
     const currentMP = actor.system.resources?.mp?.value || 0;
     if (currentMP < mpCost) {
+      // Keep this notification - it's one of the ones we want
+      ui.notifications.warn(`Not enough MP to play set. Need ${mpCost} MP, have ${currentMP} MP.`);
       return false;
     }
   }

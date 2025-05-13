@@ -35,7 +35,7 @@
   padding: 10px;
   padding-top: 35px; /* Make room for info bar */
   border-radius: 8px 8px 0 0;
-  z-index: 2000;
+  z-index: 70;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -47,7 +47,7 @@
   transform: translateX(-50%) translateY(0) !important;
   opacity: 1 !important;
   pointer-events: auto !important;
-  z-index: 2000 !important;
+  z-index: 70 !important;
 }
 
 /* Handle indicator: small bar at top of drawer */
