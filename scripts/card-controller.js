@@ -253,45 +253,50 @@ static async playSetToTable(setData, indicator) {
   }
 }
   
-  // Clean the table
+// Clean the table
 static async cleanTable() {
   const tablePile = getTablePile();
   if (!tablePile) {
+    console.error(`${MODULE_ID} | Table pile not available`);
     return false;
   }
   
-  const ids = tablePile.cards.map(c => c.id);
-  if (!ids.length) {
+  const cards = Array.from(tablePile.cards);
+  if (cards.length === 0) {
+    console.log(`${MODULE_ID} | Table is already empty`);
     return false;
   }
   
   // Group cards by their owner
   const cardsByOwner = {};
-  for (const card of tablePile.cards) {
+  
+  for (const card of cards) {
     const ownerId = card.getFlag(MODULE_ID, 'ownerId');
     if (!ownerId) {
+      console.warn(`${MODULE_ID} | Card ${card.name} has no owner, will remain on table`);
       continue;
     }
+    
     if (!cardsByOwner[ownerId]) cardsByOwner[ownerId] = [];
     cardsByOwner[ownerId].push(card.id);
   }
   
-  // Pass cards to their owner's discard pile
+  // Process cards for each owner
   for (const [ownerId, cardIds] of Object.entries(cardsByOwner)) {
     try {
-      // For class-based DeckManager:
+      // Get owner's discard pile
       const ownerPiles = getPlayerPiles(ownerId);
-      // OR for function-based:
-      // const ownerPiles = getPlayerPiles(ownerId);
       
       if (!ownerPiles?.discard) {
+        console.warn(`${MODULE_ID} | No discard pile found for ${game.users.get(ownerId)?.name}`);
         continue;
       }
       
       // Pass the cards to the owner's discard pile
       await tablePile.pass(ownerPiles.discard, cardIds, { chatNotification: false });
+      console.log(`${MODULE_ID} | Moved ${cardIds.length} cards to ${game.users.get(ownerId)?.name}'s discard pile`);
     } catch (error) {
-      console.error(`Error handling cards for player ${ownerId}:`, error);
+      console.error(`${MODULE_ID} | Error handling cards for player ${ownerId}:`, error);
     }
   }
   
@@ -300,6 +305,7 @@ static async cleanTable() {
   UIManager.renderTable();
   SocketManager.emitCleanTable();
   
+  console.log(`${MODULE_ID} | Table cleaned successfully`);
   return true;
 }
   
@@ -395,6 +401,9 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
   // Add flag for sets that need damage type selection
   const isDoubleTrouble = setData.type === 'double-trouble';
   
+  // Determine if this set targets multiple enemies or is single-target
+  const isMultiTarget = ['jackpot', 'magic-flush', 'blinding-flush', 'full-status', 'triple-support', 'forbidden-monarch'].includes(setData.type);
+  
   // Get suit information for each card
   const cardsWithSuits = setData.cards.map(card => ({
       id: card.id,
@@ -421,11 +430,7 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
     mpCost: mpCost,
     effect: description.effect,
     comboDescription: description.base,
-    cards: setData.cards.map(card => ({
-      id: card.id,
-      name: card.name,
-      img: card.faces[card.face ?? 0]?.img
-    })),
+    isMultiTarget: isMultiTarget, // Added for targeting info
     isDoubleTrouble: isDoubleTrouble,
     cards: cardsWithSuits,
     availableSuits: availableSuits,

@@ -28,13 +28,35 @@ export class EventHandlers {
   
   // Setup handlers for UI buttons
   static setupButtonHandlers() {
-    // Button handler: Clean Table
-    const btnClean = document.getElementById('fu-clean-table');
-    if (btnClean) {
-      const cleanTable = () => CardController.cleanTable();
-      btnClean.addEventListener('click', cleanTable);
-      btnClean._cleanup = () => btnClean.removeEventListener('click', cleanTable);
+// Button handler: Clean Table
+  const btnClean = document.getElementById('fu-clean-table');
+  if (btnClean) {
+    // Remove any existing event listeners first
+    const oldClean = btnClean._cleanupFunction;
+    if (oldClean) {
+      btnClean.removeEventListener('click', oldClean);
     }
+    
+    // Define the function so we can properly remove it later
+    const cleanTableHandler = () => {
+      console.log(`${MODULE_ID} | Clean Table button clicked`);
+      if (typeof CardController.cleanTable === "function") {
+        CardController.cleanTable();
+      } else if (window.FuAceCards && typeof window.FuAceCards.CardController?.cleanTable === "function") {
+        window.FuAceCards.CardController.cleanTable();
+      } else {
+        console.error(`${MODULE_ID} | cleanTable function not found`);
+      }
+    };
+    
+    // Store the function for cleanup
+    btnClean._cleanupFunction = cleanTableHandler;
+    
+    // Add the event listener
+    btnClean.addEventListener('click', cleanTableHandler);
+  } else {
+    console.warn(`${MODULE_ID} | Clean Table button not found in DOM`);
+  }
     
     // Button handler: Draw Card
     const btnDraw = document.getElementById('fu-draw-card');
