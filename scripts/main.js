@@ -64,51 +64,158 @@ function cleanupAllTooltips() {
 }
 
 function openJokerDialog(jokerCard) {
-  const suitOptions = [
-    { value: 'hearts', label: `Hearts ♥️【Fire】`, element: 'fire' },
-    { value: 'diamonds', label: `Diamonds ♦️【Air】`, element: 'air' },
-    { value: 'clubs', label: `Clubs ♣️【Earth】`, element: 'earth' },
-    { value: 'spades', label: `Spades ♠️【Ice】`, element: 'ice' }
-  ];
-  
-  const valueOptions = Array.from({ length: 7 }, (_, i) => i + 1);
-  
   // Get currently set values if any
   const currentSuit = jokerCard.getFlag(MODULE_ID, 'phantomSuit') || '';
   const currentValue = jokerCard.getFlag(MODULE_ID, 'phantomValue') || '';
-  
-  // Add small style to align icons in dropdown
+
+  // Define suit data
+  const suits = [
+    { value: 'hearts', symbol: '♥️', element: 'Fire', color: '#e51c23' },
+    { value: 'diamonds', symbol: '♦️', element: 'Air', color: '#e91e63' },
+    { value: 'clubs', symbol: '♣️', element: 'Earth', color: '#212121' },
+    { value: 'spades', symbol: '♠️', element: 'Ice', color: '#212121' }
+  ];
+
+  // Setup styles for our radio buttons
   const style = `
     <style>
-      #joker-suit-select option i {
-        vertical-align: middle;
-        margin-left: 5px;
+      .joker-radio-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 10px 0;
+        justify-content: center;
+      }
+      .suit-option {
+        width: 60px;
+        height: 80px;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.2s;
+        background: white;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+      }
+      .suit-option:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+      }
+      .suit-option.selected {
+        border-color: gold;
+        box-shadow: 0 0 8px gold;
+        transform: translateY(-3px);
+      }
+      .suit-symbol {
+        font-size: 24px;
+        margin-bottom: 5px;
+      }
+      .suit-element {
+        font-size: 10px;
+        color: #666;
+        text-align: center;
+      }
+      .value-option {
+        width: 30px;
+        height: 40px;
+        border: 2px solid #ccc;
+        border-radius: 8px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        font-weight: bold;
+        transition: all 0.2s;
+        background: white;
+      }
+      .value-option:hover {
+        background: #f5f5f5;
+        transform: translateY(-2px);
+      }
+      .value-option.selected {
+        border-color: gold;
+        background: #fffacd;
+      }
+      .section-label {
+        width: 100%;
+        text-align: center;
+        font-weight: bold;
+        margin-top: 10px;
+        color: #444;
       }
     </style>
   `;
-  
+
+  // Create the content with card-style radio groups
   let content = `
     ${style}
     <form>
-      <div class="form-group">
-        <label>Select suit:</label>
-        <select id="joker-suit-select" name="suit">
-          ${suitOptions.map(suit => 
-            `<option value="${suit.value}" ${currentSuit === suit.value ? 'selected' : ''}>${suit.label}</option>`
-          ).join('')}
-        </select>
+      <div class="section-label">Select Suit</div>
+      <div class="joker-radio-group" id="suit-group">
+        ${suits.map(suit => `
+          <div class="suit-option ${currentSuit === suit.value ? 'selected' : ''}" 
+               data-value="${suit.value}">
+            <div class="suit-symbol" style="color: ${suit.color}">${suit.symbol}</div>
+            <div class="suit-element">【${suit.element}】</div>
+          </div>
+        `).join('')}
       </div>
-      <div class="form-group">
-        <label>Select value:</label>
-        <select id="joker-value-select" name="value">
-          ${valueOptions.map(value => 
-            `<option value="${value}" ${currentValue == value ? 'selected' : ''}>${value}</option>`
-          ).join('')}
-        </select>
+      
+      <div class="section-label">Select Value</div>
+      <div class="joker-radio-group" id="value-group">
+        ${Array.from({ length: 7 }, (_, i) => i + 1).map(value => `
+          <div class="value-option ${currentValue == value ? 'selected' : ''}" data-value="${value}">
+            ${value}
+          </div>
+        `).join('')}
       </div>
+      
+      <input type="hidden" id="selected-suit" name="selected-suit" value="${currentSuit}">
+      <input type="hidden" id="selected-value" name="selected-value" value="${currentValue}">
     </form>
+    
+    <script>
+      // Add click handlers once dialog is rendered
+      setTimeout(() => {
+        // Suit selection
+        document.querySelectorAll('#suit-group .suit-option').forEach(option => {
+          option.addEventListener('click', () => {
+            // Remove selected class from all options
+            document.querySelectorAll('#suit-group .suit-option').forEach(opt => {
+              opt.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked option
+            option.classList.add('selected');
+            
+            // Update hidden input
+            document.getElementById('selected-suit').value = option.dataset.value;
+          });
+        });
+        
+        // Value selection
+        document.querySelectorAll('#value-group .value-option').forEach(option => {
+          option.addEventListener('click', () => {
+            // Remove selected class from all options
+            document.querySelectorAll('#value-group .value-option').forEach(opt => {
+              opt.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked option
+            option.classList.add('selected');
+            
+            // Update hidden input
+            document.getElementById('selected-value').value = option.dataset.value;
+          });
+        });
+      }, 50);
+    </script>
   `;
-  
+
   new Dialog({
     title: "🃏 Assign Joker Values",
     content: content,
@@ -117,8 +224,14 @@ function openJokerDialog(jokerCard) {
         icon: '<i class="fas fa-check"></i>',
         label: "Assign",
         callback: async html => {
-          const suit = html.find('#joker-suit-select').val();
-          const value = parseInt(html.find('#joker-value-select').val());
+          const suit = html.find('#selected-suit').val();
+          const value = parseInt(html.find('#selected-value').val());
+          
+          // Only proceed if both values are valid
+          if (!suit || isNaN(value)) {
+            ui.notifications.warn("Please select both a suit and a value");
+            return;
+          }
           
           // Save the phantom values on the card
           await jokerCard.setFlag(MODULE_ID, 'phantomSuit', suit);
@@ -127,13 +240,11 @@ function openJokerDialog(jokerCard) {
           // Show notification
           ui.notifications.info(`Joker set as ${value} of ${window.capitalize(suit)}`);
           
-          // Show the hand area
-          window.FuAceCards.showHandArea();
-          
           // Update the UI
+          window.FuAceCards.showHandArea();
           window.FuAceCards.renderHand();
           
-          // Update set info - only need to call this once
+          // Update set info
           const piles = window.FuAceCards.getCurrentPlayerPiles();
           if (piles?.hand) {
             window.FuAceCards.updateSetInfoBar(
@@ -155,10 +266,8 @@ function openJokerDialog(jokerCard) {
           // Show notification
           ui.notifications.info("Joker value cleared");
           
-          // Show the hand area
+          // Update UI
           window.FuAceCards.showHandArea();
-          
-          // Update UI - use the global functions
           window.FuAceCards.renderHand();
           
           // Update set info
@@ -176,16 +285,10 @@ function openJokerDialog(jokerCard) {
         icon: '<i class="fas fa-times"></i>',
         label: "Cancel",
         callback: () => {
-          // Even when canceling, we need to refresh the UI state
-          // This ensures event handlers are properly restored
-          
-          // Show the hand area
+          // Refresh UI
           window.FuAceCards.showHandArea();
-          
-          // Update the UI
           window.FuAceCards.renderHand();
           
-          // Update set info
           const piles = window.FuAceCards.getCurrentPlayerPiles();
           if (piles?.hand) {
             window.FuAceCards.updateSetInfoBar(
@@ -194,16 +297,12 @@ function openJokerDialog(jokerCard) {
               window.FuAceCards.handleHandSetClick
             );
           }
-          
-          // Just to be safe, trigger a hook that might refresh anything we missed
-          Hooks.callAll('cardsPilesUpdated');
         }
       }
     },
     default: "assign",
-    // Add this to ensure dialog cleanup
     close: () => {
-      // In case dialog is closed without button press, refresh UI
+      // In case dialog is closed without button press
       window.FuAceCards.showHandArea();
       window.FuAceCards.renderHand();
       
@@ -215,10 +314,8 @@ function openJokerDialog(jokerCard) {
           window.FuAceCards.handleHandSetClick
         );
       }
-      
-      // Just to be safe, trigger a hook that might refresh anything we missed
-      Hooks.callAll('cardsPilesUpdated');
-    }
+    },
+    width: 300 // Make dialog narrower to match content
   }).render(true);
 }
 
