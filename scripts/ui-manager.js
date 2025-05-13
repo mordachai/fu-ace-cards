@@ -7,7 +7,9 @@ import { DialogManager } from './dialog-manager.js';
 import { EventHandlers } from './event-handlers.js';
 
 export class UIManager {
-  
+  // Track selected card
+  static selectedCard = null;
+   
   // Render the table area
   static renderTable() {
     const tableArea = document.getElementById('fu-table-area');
@@ -69,10 +71,10 @@ export class UIManager {
     
     // Update set info bar for table
     if (cards.size > 0) {
-    // Use the imported EventHandlers or a safe reference
-    const handleTableSetClick = window.FuAceCards?.handleTableSetClick || 
+      // Use the imported EventHandlers or a safe reference
+      const handleTableSetClick = window.FuAceCards?.handleTableSetClick || 
                                 EventHandlers.handleTableSetClick.bind(EventHandlers);
-    updateSetInfoBar(Array.from(cards), 'table', handleTableSetClick);
+      updateSetInfoBar(Array.from(cards), 'table', handleTableSetClick);
     }
   }
   
@@ -91,9 +93,18 @@ export class UIManager {
     const hand = piles.hand;
     if (!hand) return;
 
+    // Update discard selected button state
+    this.updateDiscardButtonState();
+
     for (const c of hand.cards) {
       const d = document.createElement('div');
       d.className = 'fu-card';
+      
+      // If this is the selected card, mark it as selected
+      if (this.selectedCard === c.id) {
+        d.classList.add('selected');
+      }
+      
       d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
       d.dataset.cardId = c.id;
 
@@ -132,8 +143,16 @@ export class UIManager {
         d.dataset.tooltip = c.name;
       }
 
-      // Play a single card from hand to table
-      d.addEventListener('click', async () => {
+      // Card click handler
+      d.addEventListener('click', async (event) => {
+        // If holding shift, this is a selection, not a play action
+        if (event.shiftKey) {
+          event.preventDefault();
+          this.selectCard(c.id, d);
+          return;
+        }
+        
+        // Normal card play logic below
         // Validate the card is still in hand before attempting to pass
         if (!hand.cards.has(c.id)) {
           ui.notifications.warn('Card no longer in hand');
@@ -164,6 +183,48 @@ export class UIManager {
     }
   }
   
+  // Handle card selection
+  static selectCard(cardId, cardElement) {
+    // Clear previous selection if it's a different card
+    if (this.selectedCard !== cardId) {
+      document.querySelectorAll('#fu-hand-cards .fu-card.selected').forEach(el => {
+        el.classList.remove('selected');
+      });
+    }
+    
+    // If selecting the same card, deselect it
+    if (this.selectedCard === cardId) {
+      this.selectedCard = null;
+      cardElement.classList.remove('selected');
+    } else {
+      // Select the new card
+      this.selectedCard = cardId;
+      cardElement.classList.add('selected');
+    }
+    
+    // Update discard button state
+    this.updateDiscardButtonState();
+  }
+  
+  // Update discard button enabled/disabled state
+  static updateDiscardButtonState() {
+    const discardBtn = document.getElementById('fu-discard-selected');
+    if (discardBtn) {
+      discardBtn.disabled = !this.selectedCard;
+    }
+  }
+  
+  // Clear card selection
+  static clearCardSelection() {
+    this.selectedCard = null;
+    document.querySelectorAll('#fu-hand-cards .fu-card.selected').forEach(el => {
+      el.classList.remove('selected');
+    });
+    
+    // Update discard button state
+    this.updateDiscardButtonState();
+  }
+  
   // Show the hand area
   static showHandArea() {
     const handArea = document.getElementById('fu-hand-area');
@@ -178,36 +239,37 @@ export class UIManager {
   
   // Apply player color to card element
   static applyPlayerColor(cardElement, card) {
-    if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.SHOW_PLAYER_COLORS)) return;
-    
-    const ownerId = card.getFlag(MODULE_ID, 'ownerId');
-    if (ownerId) {
-      const color = this.getPlayerColor(ownerId);
-      cardElement.dataset.ownerId = ownerId;
-      cardElement.style.setProperty('--player-color', color);
-      cardElement.classList.add('fu-card-owned');
-    }
-  }
-
-    // Apply player color to card element
-    static applyPlayerColor(cardElement, card) {
     // Add safety check for settings
     if (!game.settings || !game.settings.get) return;
     
     try {
-        if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.SHOW_PLAYER_COLORS)) return;
-        
-        const ownerId = card.getFlag(MODULE_ID, 'ownerId');
-        if (ownerId) {
+      if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.SHOW_PLAYER_COLORS)) return;
+      
+      const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+      if (ownerId) {
         const color = this.getPlayerColor(ownerId);
         cardElement.dataset.ownerId = ownerId;
         cardElement.style.setProperty('--player-color', color);
         cardElement.classList.add('fu-card-owned');
-        }
+      }
     } catch (error) {
-        console.warn(`${MODULE_ID} | Could not apply player color:`, error);
+      console.warn(`${MODULE_ID} | Could not apply player color:`, error);
     }
+  }
+  
+  // Get player color with caching
+  static getPlayerColor(userId) {
+    if (!this.playerColorCache) this.playerColorCache = new Map();
+    
+    if (this.playerColorCache.has(userId)) {
+      return this.playerColorCache.get(userId);
     }
+    
+    const user = game.users.get(userId);
+    const color = user?.color || '#FFFFFF';
+    this.playerColorCache.set(userId, color);
+    return color;
+  }
   
   // Create tooltip for card
   static createCardTooltip(card) {
@@ -253,6 +315,7 @@ export class UIManager {
   static initialize() {
     this.playerColorCache = new Map();
     this.activeTooltips = new Set();
+    this.selectedCard = null;
   }
 }
 

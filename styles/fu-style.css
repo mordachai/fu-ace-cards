@@ -575,6 +575,36 @@
   animation: pulse 1.5s infinite;
 }
 
+/* Add this to your CSS for selected card styling */
+.fu-card.selected {
+  transform: scale(1.1);
+  box-shadow: 0 0 10px rgba(255, 255, 0, 0.7);
+  border-color: yellow;
+  border-width: 3px;
+}
+
+/* Add tooltip helper text */
+.fu-card::after {
+  content: "Shift+Click to select";
+  position: absolute;
+  bottom: -20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 2px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.2s;
+  pointer-events: none;
+}
+
+.fu-card:hover::after {
+  opacity: 1;
+}
+
 @keyframes pulse {
   0% { box-shadow: 0 0 0 0 rgba(255, 99, 71, 0.4); }
   70% { box-shadow: 0 0 0 5px rgba(255, 99, 71, 0); }

@@ -51,6 +51,15 @@ export class EventHandlers {
       btnReset.addEventListener('click', resetHand);
       btnReset._cleanup = () => btnReset.removeEventListener('click', resetHand);
     }
+
+     // Button handler: Discard Selected
+    const btnDiscardSelected = document.getElementById('fu-discard-selected');
+    if (btnDiscardSelected) {
+      const discardSelected = () => CardController.discardSelectedCard();
+      btnDiscardSelected.addEventListener('click', discardSelected);
+      btnDiscardSelected.disabled = true; // Start disabled
+      btnDiscardSelected._cleanup = () => btnDiscardSelected.removeEventListener('click', discardSelected);
+    }
   }
   
   // Setup handlers for tooltips
