@@ -1,0 +1,61 @@
+<div class="joker-dialog">
+  <div class="section-label">Select Suit</div>
+  <div class="joker-radio-group" id="suit-group">
+    {{#each suits}}
+      <div class="suit-option {{#if (eq ../currentSuit this.value)}}selected{{/if}}" 
+           data-value="{{this.value}}">
+        <div class="suit-symbol" style="color: {{this.color}}">{{this.symbol}}</div>
+        <div class="suit-element">【{{this.element}}】</div>
+      </div>
+    {{/each}}
+  </div>
+  
+  <div class="section-label">Select Value</div>
+  <div class="joker-radio-group" id="value-group">
+    {{#each values}}
+      <div class="value-option {{#if (eq ../currentValue this)}}selected{{/if}}" data-value="{{this}}">
+        {{this}}
+      </div>
+    {{/each}}
+  </div>
+  
+  <input type="hidden" id="selected-suit" name="selected-suit" value="{{currentSuit}}">
+  <input type="hidden" id="selected-value" name="selected-value" value="{{currentValue}}">
+</div>
+
+<script>
+  // Add click handlers once dialog is rendered
+  setTimeout(() => {
+    // Suit selection
+    document.querySelectorAll('#suit-group .suit-option').forEach(option => {
+      option.addEventListener('click', () => {
+        // Remove selected class from all options
+        document.querySelectorAll('#suit-group .suit-option').forEach(opt => {
+          opt.classList.remove('selected');
+        });
+        
+        // Add selected class to clicked option
+        option.classList.add('selected');
+        
+        // Update hidden input
+        document.getElementById('selected-suit').value = option.dataset.value;
+      });
+    });
+    
+    // Value selection
+    document.querySelectorAll('#value-group .value-option').forEach(option => {
+      option.addEventListener('click', () => {
+        // Remove selected class from all options
+        document.querySelectorAll('#value-group .value-option').forEach(opt => {
+          opt.classList.remove('selected');
+        });
+        
+        // Add selected class to clicked option
+        option.classList.add('selected');
+        
+        // Update hidden input
+        document.getElementById('selected-value').value = option.dataset.value;
+      });
+    });
+  }, 50);
+</script>

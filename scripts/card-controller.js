@@ -1,0 +1,494 @@
+// scripts/card-controller.js
+import { MODULE_ID } from './settings.js';
+import { UIManager } from './ui-manager.js';
+import { SocketManager } from './socket-manager.js';
+import { PileManager } from './pile-manager.js';
+import { getTablePile, getCurrentPlayerPiles, getPlayerPiles } from './pile-manager.js';
+import { DeckManager } from './deck-manager.js';
+import { SET_NAMES } from './set-detector.js';
+import { getCardValue } from './set-detector.js';
+import { DamageIntegration } from './damage-integration.js';
+
+export class CardController {
+  
+// Draw a card from deck to hand
+static async drawCard() {
+const piles = PileManager.getCurrentPlayerPiles();
+if (!piles?.deck) {
+    ui.notifications.warn('No deck assigned');
+    return false;
+}
+
+if (piles.deck.cards.size === 0) {
+    ui.notifications.warn('Deck empty');
+    
+    // Check if discard has cards to reshuffle
+    if (piles.discard && piles.discard.cards.size > 0) {
+    ui.notifications.info('Reshuffling discard pile into deck...');
+    await piles.discard.reset({ shuffle: true });
+    // Try again after reshuffling
+    return this.drawCard();
+    }
+    
+    return false;
+}
+
+try {
+    await piles.deck.deal([piles.hand], 1, { how: CONST.CARD_DRAW_MODES.RANDOM, chatNotification: false });
+    UIManager.renderHand();
+    ui.notifications.info('You drew a card');
+    return true;
+} catch (error) {
+    console.error(`${MODULE_ID} | Error drawing card:`, error);
+    ui.notifications.error('Failed to draw card. Check if deck has cards.');
+    return false;
+}
+}
+
+  // Play a card from hand to table
+  static async playCardToTable(card) {
+    const piles = getCurrentPlayerPiles();
+    const tablePile = getTablePile();
+    
+    if (!piles?.hand || !tablePile) {
+      ui.notifications.warn('Hand or table pile not available');
+      return false;
+    }
+    
+    try {
+      await piles.hand.pass(tablePile, [card.id], { chatNotification: false });
+      
+      // Set owner flag on the card AFTER successful pass
+      const tableCard = tablePile.cards.get(card.id);
+      if (tableCard) {
+        await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
+        
+        // If it's a joker, also transfer phantom values
+        if (card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker')) {
+          const phantomSuit = card.getFlag(MODULE_ID, 'phantomSuit');
+          const phantomValue = card.getFlag(MODULE_ID, 'phantomValue');
+          
+          if (phantomSuit) await tableCard.setFlag(MODULE_ID, 'phantomSuit', phantomSuit);
+          if (phantomValue) await tableCard.setFlag(MODULE_ID, 'phantomValue', phantomValue);
+        }
+      }
+      
+      // Emit socket message to notify other players
+      SocketManager.emitCardToTable(card.id);
+      
+      UIManager.renderHand();
+      UIManager.renderTable();
+      ui.notifications.info(`Played ${card.name}`);
+      return true;
+    } catch (error) {
+      console.error("Error playing card:", error);
+      ui.notifications.error(`Failed to play card: ${error.message}`);
+      UIManager.renderHand(); // Re-render to ensure UI is in sync
+      return false;
+    }
+  }
+  
+  // Play a set to table
+  static async playSetToTable(setData, indicator) {
+    const piles = getCurrentPlayerPiles();
+    const tablePile = getTablePile();
+    
+    if (!piles?.hand || !tablePile) {
+      ui.notifications.warn('Hand or table pile not available');
+      return false;
+    }
+    
+    // Hide tooltip immediately when clicking
+    UIManager.cleanupAllTooltips();
+
+    // Get card IDs from the indicator
+    const cardIds = indicator.dataset.cardIds.split(',');
+    if (!cardIds || cardIds.length === 0) {
+      ui.notifications.warn("No cards found in the set");
+      return false;
+    }
+
+    // Check if set contains unassigned jokers
+    const hasUnassignedJoker = cardIds.some(cardId => {
+      const card = piles.hand.cards.get(cardId);
+      if (!card) return false;
+      
+      const isJoker = card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker');
+      return isJoker && (!card.getFlag(MODULE_ID, 'phantomSuit') || !card.getFlag(MODULE_ID, 'phantomValue'));
+    });
+    
+    if (hasUnassignedJoker) {
+      ui.notifications.warn("Please assign values to all jokers in the set before playing it (right-click on jokers)");
+      return false;
+    }
+    
+    // Double-check we can still afford it
+    const mpCost = parseInt(indicator.dataset.mpCost);
+    const actor = game.user.character;
+    
+    if (actor) {
+      const currentMP = actor.system.resources?.mp?.value || 0;
+      if (currentMP < mpCost) {
+        ui.notifications.warn(`Not enough MP. Need ${mpCost}, have ${currentMP}`);
+        return false;
+      }
+    }
+    
+    const setType = indicator.dataset.setType;
+    
+    try {
+      // Play all cards in the set to table
+      for (const cardId of cardIds) {
+        if (!piles.hand.cards.has(cardId)) {
+          throw new Error(`Card ${cardId} no longer in hand`);
+        }
+        
+        // Get card before passing to preserve any flags
+        const handCard = piles.hand.cards.get(cardId);
+        
+        // Pass the card to the table
+        await piles.hand.pass(tablePile, [cardId], { chatNotification: false });
+        
+        // Set owner flag on the card AFTER successful pass
+        const tableCard = tablePile.cards.get(cardId);
+        if (tableCard) {
+          // Set basic flags
+          await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
+          await tableCard.setFlag(MODULE_ID, 'setType', setType);
+          
+          // If it's a joker, also transfer the phantom values
+          if (handCard.name.toLowerCase().includes('joker') || handCard.getFlag(MODULE_ID, 'isJoker')) {
+            const phantomSuit = handCard.getFlag(MODULE_ID, 'phantomSuit');
+            const phantomValue = handCard.getFlag(MODULE_ID, 'phantomValue');
+            
+            if (phantomSuit) await tableCard.setFlag(MODULE_ID, 'phantomSuit', phantomSuit);
+            if (phantomValue) await tableCard.setFlag(MODULE_ID, 'phantomValue', phantomValue);
+          }
+        }
+      }
+      
+      // Emit socket message to notify other players
+      SocketManager.emitSetPlayed(setType, cardIds);
+      
+      // Update UI
+      UIManager.renderHand();
+      UIManager.renderTable();
+      
+      // Show notification
+      const setName = SET_NAMES[setType] || setType.replace('-', ' ').split(' ').map(word => 
+        word.charAt(0).toUpperCase() + word.slice(1)
+      ).join(' ');
+      
+      ui.notifications.info(`Played ${setName} to table (${mpCost} MP)`);
+      return true;
+      
+    } catch (error) {
+      console.error("Error playing set:", error);
+      ui.notifications.error(`Failed to play set: ${error.message}`);
+      UIManager.renderHand();
+      return false;
+    }
+  }
+  
+  // Clean the table
+static async cleanTable() {
+  const tablePile = getTablePile();
+  if (!tablePile) {
+    ui.notifications.warn('Table pile not available');
+    return false;
+  }
+  
+  const ids = tablePile.cards.map(c => c.id);
+  if (!ids.length) {
+    ui.notifications.info('Table empty');
+    return false;
+  }
+  
+  // Group cards by their owner
+  const cardsByOwner = {};
+  for (const card of tablePile.cards) {
+    const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+    if (!ownerId) {
+      ui.notifications.warn(`Card ${card.name} has no owner`);
+      continue;
+    }
+    if (!cardsByOwner[ownerId]) cardsByOwner[ownerId] = [];
+    cardsByOwner[ownerId].push(card.id);
+  }
+  
+  // Pass cards to their owner's discard pile
+  for (const [ownerId, cardIds] of Object.entries(cardsByOwner)) {
+    try {
+      // For class-based DeckManager:
+      const ownerPiles = getPlayerPiles(ownerId);
+      // OR for function-based:
+      // const ownerPiles = getPlayerPiles(ownerId);
+      
+      if (!ownerPiles?.discard) {
+        ui.notifications.warn(`No discard pile found for ${game.users.get(ownerId)?.name}`);
+        continue;
+      }
+      
+      // Pass the cards to the owner's discard pile
+      await tablePile.pass(ownerPiles.discard, cardIds, { chatNotification: false });
+    } catch (error) {
+      console.error(`Error handling cards for player ${ownerId}:`, error);
+      ui.notifications.warn(`Failed to process cards for ${game.users.get(ownerId)?.name}`);
+    }
+  }
+  
+  // Clean up tooltips and update UI
+  UIManager.cleanupAllTooltips();
+  UIManager.renderTable();
+  SocketManager.emitCleanTable();
+  
+  ui.notifications.info('Table cleared');
+  return true;
+}
+  
+  // Reset hand
+  static async resetHand() {
+    const piles = getCurrentPlayerPiles();
+    if (!piles?.hand) {
+      ui.notifications.warn('No hand assigned');
+      return false;
+    }
+    
+    const ids = piles.hand.cards.map(c => c.id);
+    if (!ids.length) {
+      ui.notifications.info('Hand empty');
+      return false;
+    }
+    
+    await piles.hand.pass(piles.discard, ids, { chatNotification: false });
+    
+    // Clean up tooltips when hand is reset
+    UIManager.cleanupAllTooltips();
+    
+    UIManager.renderHand();
+    ui.notifications.info('Hand reset');
+    return true;
+  }
+  
+  // Activate a set on the table
+static async activateTableSet(setData, playerId) {
+  // Only the owner can activate their sets
+  if (playerId !== game.userId) {
+    ui.notifications.warn("You can only activate your own sets");
+    return false;
+  }
+  
+  const mpCost = setData.cards.length * 5;
+  
+  // Create chat message with card images
+  const player = game.users.get(playerId);
+  const character = player.character;
+  
+  const chatData = {
+    user: game.userId,
+    speaker: ChatMessage.getSpeaker({ actor: character }),
+    content: await this.createSetActivationMessage(setData, playerId, mpCost),
+    type: CONST.CHAT_MESSAGE_TYPES.OTHER
+  };
+  
+  await ChatMessage.create(chatData);
+  
+  try {
+    // Get the player's discard pile
+    // For class-based DeckManager:
+    const piles = getPlayerPiles(playerId);
+    // OR for function-based:
+    // const piles = getPlayerPiles(playerId);
+    
+    if (!piles?.discard) {
+      ui.notifications.error("Could not find your discard pile");
+      return false;
+    }
+    
+    const tablePile = getTablePile();
+    if (!tablePile) {
+      ui.notifications.error("Table pile not found");
+      return false;
+    }
+    
+    // Move the set cards from table to discard
+    await tablePile.pass(piles.discard, setData.cardIds, { chatNotification: false });
+    
+    // Emit socket message and update UI
+    SocketManager.emitSetActivated(setData.type, setData.cardIds);
+    UIManager.renderTable();
+    ui.notifications.info(`Set activated and cards discarded`);
+    
+    return true;
+  } catch (error) {
+    console.error("Error activating set:", error);
+    ui.notifications.error(`Failed to discard set cards: ${error.message}`);
+    return false;
+  }
+}
+
+// from here
+
+static async createSetActivationMessage(setData, playerId, mpCost) {
+  // Get description data
+  const description = this.getSetEffectDescription(setData);
+  const player = game.users.get(playerId);
+  const character = player.character;
+  const characterName = character?.name;
+  const displayName = characterName || player.name;
+  const actorId = character?.id || "";
+  
+  // Calculate damage if this set type deals damage
+  const damageData = DamageIntegration.calculateDamageForSet(setData);
+
+  // Add flag for sets that need damage type selection
+  const isDoubleTrouble = setData.type === 'double-trouble';
+  
+  // Get suit information for each card
+  const cardsWithSuits = setData.cards.map(card => ({
+      id: card.id,
+      name: card.name,
+      img: card.faces[card.face ?? 0]?.img,
+      suit: this.getCardSuit(card) // Extract the suit properly
+  }));
+
+  // Get available damage types (suits) for this set
+  const availableSuits = [...new Set(cardsWithSuits.map(c => c.suit))];
+  
+  // Get highest value for effects that need it
+  const highestValue = Math.max(...setData.values);
+  
+  // Prepare data for template
+  const templateData = {
+    debugInfo: game.user.isGM && game.settings.get(MODULE_ID, 'debug'), // Only if you have a debug setting
+    highestValue: damageData?.highestValue || highestValue,
+    isEven: (damageData?.highestValue || highestValue) % 2 === 0,
+    setType: setData.type,
+    setName: SET_NAMES[setData.type],
+    playerName: displayName,
+    actorId: actorId,
+    mpCost: mpCost,
+    effect: description.effect,
+    comboDescription: description.base,
+    cards: setData.cards.map(card => ({
+      id: card.id,
+      name: card.name,
+      img: card.faces[card.face ?? 0]?.img
+    })),
+    isDoubleTrouble: isDoubleTrouble,
+    cards: cardsWithSuits,
+    availableSuits: availableSuits,
+    hasDamage: damageData !== null,
+    damageValue: damageData?.value || 0,
+    damageType: damageData?.type || '',
+    damageTypeLabel: damageData?.type ? game.i18n.localize(`FU.Damage${window.capitalize(damageData.type)}`) || damageData.type.toUpperCase() : '',
+    highRoll: damageData?.highRoll || 0,
+    baseDamage: damageData?.baseDamage || 0
+  };
+  
+  // Render the template
+  return await renderTemplate(`modules/${MODULE_ID}/templates/set-activation.hbs`, templateData);
+}
+
+// Helper method to get card suit
+static getCardSuit(card) {
+  // Try to get suit from card data, flags, or name
+  return card.suit || card.getFlag(MODULE_ID, 'suit') || 
+         card.name.toLowerCase().match(/(clubs?|diamonds?|hearts?|spades?)/)?.[0] || '';
+}
+
+// Helper method to get set description
+static getSetEffectDescription(setData) {
+  // This is imported from elsewhere in your code, let's implement it directly
+  const SET_DESCRIPTIONS = {
+    'jackpot': {
+      base: '4 cards of the same value, none of which is a joker',
+      effect: 'You and every ally present on the scene recover 777 Hit Points and 777 Mind Points; any PCs who have surrendered but are still part of the scene immediately regain consciousness (this does not cancel the effects of their Surrender).'
+    },
+    'magic-flush': {
+      base: '4 cards of consecutive values and of the same suit',
+      effect: 'You deal damage equal to 【25 + the total value of the resolved cards】 to each enemy present on the scene; the type of this damage matches the suit of the resolved cards.'
+    },
+    'blinding-flush': {
+      base: '4 cards of consecutive values',
+      effect: 'You deal damage equal to 【15 + the total value of the resolved cards】 to each enemy present on the scene; the type of this damage is light if the highest value among those cards is even, or dark if that value is odd.'
+    },
+    'full-status': {
+      base: '3 cards of the same value + 2 cards of the same value',
+      effect: 'Choose two status effects among dazed, shaken, slow, and weak: if 【the highest value among resolved cards】 is even, you and every ally present on the scene recover from the chosen status effects; if odd, each enemy present on the scene suffers them.'
+    },
+    'triple-support': {
+      base: '3 cards of the same value',
+      effect: 'You and every ally present on the scene regain an amount of Hit Points and Mind Points equal to 【the total value of the resolved cards, multiplied by 3】.'
+    },
+    'double-trouble': {
+      base: '2 cards of the same value + 2 cards of the same value',
+      effect: 'You deal damage equal to 【10 + the highest value among resolved cards】 to each of up to two different enemies you can see that are present on the scene; the type of this damage is one of your choice among those matching the suits of the resolved cards.'
+    },
+    'magic-pair': {
+      base: '2 cards of the same value',
+      effect: 'You perform a free attack with a weapon you have equipped. If this attack deals damage, choose a suit among those of the resolved cards; all damage dealt by the attack becomes of the type matching that suit.'
+    },
+    'forbidden-monarch': {
+      base: '4 cards of the same value, none of which is a joker + 1 joker',
+      effect: 'You deal damage 777 damage to each enemy present on the scene; the type of this damage is light if 【the common value of the 4 cards】 is even, or dark if that total is odd. If there is a joker in your discard pile, the damage dealt by this effect ignores Immunities and Resistances.'
+    }
+  };
+
+  const template = SET_DESCRIPTIONS[setData.type] || { base: 'Unknown set', effect: 'Unknown effect' };
+  
+  // Calculate specific values for this set
+  let effect = template.effect;
+  const totalValue = setData.values.reduce((sum, val) => sum + val, 0);
+  const highestValue = Math.max(...setData.values);
+  
+  // Replace placeholders with calculated values based on set type
+  switch (setData.type) {
+    case 'magic-flush': {
+      const magicDamage = 25 + totalValue;
+      effect = effect.replace('【25 + the total value of the resolved cards】', `【${magicDamage}】`);
+      break;
+    }
+    case 'blinding-flush': {
+      const blindingDamage = 15 + totalValue;
+      const damageType = highestValue % 2 === 0 ? 'light' : 'dark';
+      effect = effect.replace('【15 + the total value of the resolved cards】', `【${blindingDamage}】`);
+      effect = effect.replace('light if the highest value among those cards is even, or dark if that value is odd', 
+                              `${damageType} (highest value: ${highestValue})`);
+      break;
+    }
+    case 'full-status': {
+      effect = effect.replace('【the highest value among resolved cards】', `【${highestValue}】`);
+      const statusEffect = highestValue % 2 === 0 ? 'recover from' : 'suffer';
+      effect = effect.replace('if even, you and every ally present on the scene recover from the chosen status effects; if odd, each enemy present on the scene suffers them',
+                            `allies will ${statusEffect} the chosen status effects`);
+      break;
+    }
+    case 'triple-support': {
+      const healAmount = totalValue * 3;
+      effect = effect.replace('【the total value of the resolved cards, multiplied by 3】', `【${healAmount}】`);
+      break;
+    }
+    case 'double-trouble': {
+      const doubleDamage = 10 + highestValue;
+      effect = effect.replace('【10 + the highest value among resolved cards】', `【${doubleDamage}】`);
+      break;
+    }
+    case 'forbidden-monarch': {
+      const commonValue = setData.values[0]; // First value in a set with same values
+      const forbiddenType = commonValue % 2 === 0 ? 'light' : 'dark';
+      effect = effect.replace('【the common value of the 4 cards】', `【${commonValue}】`);
+      effect = effect.replace('light if 【the common value of the 4 cards】 is even, or dark if that total is odd',
+                            `${forbiddenType} damage`);
+      break;
+    }
+  }
+  
+  return {
+    base: template.base,
+    effect: effect,
+    cards: setData.cards.map(c => c.name).join(', ')
+  };
+}
+
+}
