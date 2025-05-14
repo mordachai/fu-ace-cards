@@ -1,0 +1,78 @@
+{{!-- templates/status-effect-selector.hbs --}}
+<form>
+    <div class="desc mb-3">
+        <div class="mode-indicator">
+            {{#if isEven}}
+            <p class="notes even-mode">Highest card value is even ({{highestValue}}): Select status effects to <strong>remove from allies</strong>.</p>
+            {{else}}
+            <p class="notes odd-mode">Highest card value is odd ({{highestValue}}): Select status effects to <strong>apply to enemies</strong>.</p>
+            {{/if}}
+        </div>
+    </div>
+
+    <div class="desc mb-3">
+        <p class="notes">Choose <strong>exactly two</strong> status effects:</p>
+        <div class="status-selector">
+            {{#each statuses}}
+            <div class="status-option">
+                <label class="status-label">
+                    <input type="checkbox" name="status" value="{{id}}" class="status-checkbox">
+                    <img src="{{icon}}" width="24" height="24"> {{label}}
+                </label>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+
+    <div class="desc mb-3">
+        <p class="notes">Targets {{#if isEven}}(allies){{else}}(enemies){{/if}}:</p>
+        <ul class="target-list">
+            {{#each targets}}
+            <li class="target-item">
+                <img src="{{this.img}}" width="24" height="24" style="margin-right: 5px;"/>
+                <span>{{this.name}}</span>
+            </li>
+            {{/each}}
+        </ul>
+    </div>
+</form>
+
+<script>
+    // Limit to 2 selected status effects
+    function enforceStatusLimit() {
+        const checkboxes = document.querySelectorAll('.status-checkbox');
+        let checked = 0;
+        
+        checkboxes.forEach(cb => {
+            if (cb.checked) checked++;
+        });
+        
+        if (checked > 2) {
+            // Disable unchecked checkboxes
+            checkboxes.forEach(cb => {
+                if (!cb.checked) cb.disabled = true;
+            });
+        } else {
+            // Enable all checkboxes
+            checkboxes.forEach(cb => {
+                cb.disabled = false;
+            });
+        }
+        
+        // Update apply button state
+        const applyBtn = document.querySelector('.dialog-button[data-button="yes"]');
+        if (applyBtn) {
+            applyBtn.disabled = checked !== 2;
+        }
+    }
+    
+    // Add event listeners once dialog is rendered
+    setTimeout(() => {
+        document.querySelectorAll('.status-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', enforceStatusLimit);
+        });
+        
+        // Initialize checkbox state
+        enforceStatusLimit();
+    }, 50);
+</script>

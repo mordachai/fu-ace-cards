@@ -1,0 +1,148 @@
+{{!-- templates/healing-allocation.hbs --}}
+<form>
+    <div class="desc mb-3">
+        <div class="resource-content">
+            <div class="inline-desc form-group resource-content gap-5" style="padding: 5px 10px;">
+                <label class="resource-label" style="flex-grow: 8;">
+                    <b>Total Healing Available</b>
+                    <span id="total-healing">{{totalHealing}} HP/MP</span>
+                </label>
+                <i class="icon fua fu-life" style="flex: 0 1 auto;"></i>
+            </div>
+            <div id="remaining-healing" class="inline-desc form-group resource-content gap-5" style="padding: 5px 10px;">
+                <label class="resource-label" style="flex-grow: 8;">
+                    <b>Remaining</b>
+                    <span id="remaining-value">{{totalHealing}}</span>
+                </label>
+            </div>
+        </div>
+    </div>
+
+    <div class="desc mb-3">
+        <p class="notes">Triple Support: You and every ally present on the scene regain an amount of Hit Points and Mind Points equal to 【{{totalHealing}}】, distributed as you choose.</p>
+    </div>
+
+    <div class="desc mb-3">
+        <table class="allocation-table">
+            <thead>
+                <tr>
+                    <th>Character</th>
+                    <th>HP</th>
+                    <th>MP</th>
+                </tr>
+            </thead>
+            <tbody>
+                {{#each targets}}
+                <tr data-actor-id="{{id}}">
+                    <td class="character-cell">
+                        <img src="{{img}}" width="24" height="24" style="margin-right: 5px;"/>
+                        <span>{{name}}</span>
+                    </td>
+                    <td class="allocation-cell">
+                        <input type="number" id="hp-{{id}}" name="hp-{{id}}" 
+                               class="allocation-input hp-input" 
+                               value="{{allocatedHP}}" min="0" max="{{subtract hp.max hp.current}}"
+                               data-actor-id="{{id}}" data-type="hp">
+                        <span class="resource-status">({{hp.current}}/{{hp.max}})</span>
+                    </td>
+                    <td class="allocation-cell">
+                        <input type="number" id="mp-{{id}}" name="mp-{{id}}" 
+                               class="allocation-input mp-input" 
+                               value="{{allocatedMP}}" min="0" max="{{subtract mp.max mp.current}}"
+                               data-actor-id="{{id}}" data-type="mp">
+                        <span class="resource-status">({{mp.current}}/{{mp.max}})</span>
+                    </td>
+                </tr>
+                {{/each}}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="desc mb-3">
+        <div class="form-group">
+            <button type="button" id="split-evenly" class="btn">
+                <i class="fas fa-balance-scale"></i> Split Evenly
+            </button>
+            <button type="button" id="reset-allocation" class="btn">
+                <i class="fas fa-undo"></i> Reset
+            </button>
+        </div>
+    </div>
+</form>
+
+<script>
+    // Handle allocation changes
+    function updateRemainingHealing() {
+        const totalHealing = {{totalHealing}};
+        let allocated = 0;
+        
+        // Sum all allocation inputs
+        document.querySelectorAll('.allocation-input').forEach(input => {
+            allocated += parseInt(input.value) || 0;
+        });
+        
+        // Update remaining display
+        const remaining = totalHealing - allocated;
+        document.getElementById('remaining-value').textContent = remaining;
+        
+        // Change color based on remaining
+        const remainingEl = document.getElementById('remaining-healing');
+        if (remaining < 0) {
+            remainingEl.classList.add('overallocated');
+        } else {
+            remainingEl.classList.remove('overallocated');
+        }
+        
+        // Update apply button state
+        const applyBtn = document.querySelector('.dialog-button[data-button="yes"]');
+        if (applyBtn) {
+            applyBtn.disabled = remaining < 0;
+        }
+    }
+    
+    // Split healing evenly among targets
+    function splitEvenly() {
+        const totalHealing = {{totalHealing}};
+        const targets = {{targets.length}};
+        const evenAmount = Math.floor(totalHealing / (targets * 2)); // Split between HP and MP
+        
+        document.querySelectorAll('.hp-input').forEach(input => {
+            // Limit to actor's missing HP
+            const maxHP = parseInt(input.getAttribute('max')) || 0;
+            input.value = Math.min(evenAmount, maxHP);
+        });
+        
+        document.querySelectorAll('.mp-input').forEach(input => {
+            // Limit to actor's missing MP
+            const maxMP = parseInt(input.getAttribute('max')) || 0;
+            input.value = Math.min(evenAmount, maxMP);
+        });
+        
+        updateRemainingHealing();
+    }
+    
+    // Reset all allocations
+    function resetAllocation() {
+        document.querySelectorAll('.allocation-input').forEach(input => {
+            input.value = 0;
+        });
+        
+        updateRemainingHealing();
+    }
+    
+    // Add event listeners once dialog is rendered
+    setTimeout(() => {
+        // Input change handlers
+        document.querySelectorAll('.allocation-input').forEach(input => {
+            input.addEventListener('change', updateRemainingHealing);
+            input.addEventListener('input', updateRemainingHealing);
+        });
+        
+        // Button handlers
+        document.getElementById('split-evenly').addEventListener('click', splitEvenly);
+        document.getElementById('reset-allocation').addEventListener('click', resetAllocation);
+        
+        // Initialize remaining value
+        updateRemainingHealing();
+    }, 50);
+</script>
