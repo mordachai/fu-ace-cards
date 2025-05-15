@@ -65,42 +65,45 @@ export class HooksManager {
     }
   
   // Handler for ready hook
-    static async onReady() {
-    console.log(`${MODULE_ID} | Module ready`);
-    
+  static async onReady() {
+  console.log(`${MODULE_ID} | Module ready`);
+  
     try {
-        // Initialize managers
-        SocketManager.initialize();
-        await PileManager.initialize();
-        UIManager.initialize();
-        
-        // Render UI areas
-        await this.renderUIAreas();
-        
-        // Initialize event handlers
-        EventHandlers.initialize();
-        
-        // Setup chat message handlers
-        EventHandlers.setupChatMessageHandlers();
-        
-        // Setup hand drawer behavior
-        EventHandlers.setupHandDrawer();
-        
-        // Expose global API
-        await this.exposeGlobalAPI();
-        
-        // Wait a moment for global API to be fully registered
-        setTimeout(() => {
+      // Initialize managers
+      SocketManager.initialize();
+      await PileManager.initialize();
+      UIManager.initialize();
+      
+      // Render UI areas
+      await this.renderUIAreas();
+      
+      // Initialize event handlers
+      EventHandlers.initialize();
+      
+      // Setup chat message handlers
+      EventHandlers.setupChatMessageHandlers();
+      
+      // Setup hand drawer behavior
+      EventHandlers.setupHandDrawer();
+      
+      // Setup healing and status effect handlers
+      //EventHandlers.setupHealingButtons(document.body);
+      
+      // Expose global API
+      await this.exposeGlobalAPI();
+      
+      // Wait a moment for global API to be fully registered
+      setTimeout(() => {
         // Initial rendering
         UIManager.renderTable();
         UIManager.renderHand();
         
         console.log(`${MODULE_ID} | Ready and UI rendered`);
-        }, 100);
+      }, 100);
     } catch (error) {
-        console.error(`${MODULE_ID} | Initialization error:`, error);
+      console.error(`${MODULE_ID} | Initialization error:`, error);
     }
-    }
+  }
   
   // Render UI areas by loading templates
   static async renderUIAreas() {
@@ -179,54 +182,59 @@ export class HooksManager {
     console.log(`${MODULE_ID} | Module cleanup completed`);
   }
   
-    // Expose global API for module
-    static exposeGlobalAPI() {
-    // Import necessary functions/objects
-    import('./ui-enhancements.js').then(uiModule => {
-        import('./set-detector.js').then(detectorModule => {
-        import('./damage-integration.js').then(damageModule => {
+  // Expose global API for module
+  static exposeGlobalAPI() {
+  // Import necessary functions/objects
+  import('./ui-enhancements.js').then(uiModule => {
+    import('./set-detector.js').then(detectorModule => {
+      import('./damage-integration.js').then(damageModule => {
+        import('./healing-integration.js').then(healingModule => {
+          import('./dialog-manager.js').then(dialogModule => {
             // Create global access point
             window.FuAceCards = {
-            // Managers
-            UIManager,
-            CardController,
-            PileManager,
-            SocketManager,
-            EventHandlers,
-            
-            // Convenience methods
-            renderHand: UIManager.renderHand.bind(UIManager),
-            renderTable: UIManager.renderTable.bind(UIManager),
-            showHandArea: UIManager.showHandArea.bind(UIManager),
-            getCurrentPlayerPiles: PileManager.getCurrentPlayerPiles.bind(PileManager),
-            getTablePile: PileManager.getTablePile.bind(PileManager),
-            discardCard: CardController.discardCard.bind(CardController),
-
-            
-            // Event handlers
-            handleHandSetClick: EventHandlers.handleHandSetClick.bind(EventHandlers),
-            handleTableSetClick: EventHandlers.handleTableSetClick.bind(EventHandlers),
-            
-            // UI enhancement functions
-            updateSetInfoBar: uiModule.updateSetInfoBar,
-            showSetTooltip: uiModule.showSetTooltip,
-            hideSetTooltip: uiModule.hideSetTooltip,
-            clearHighlights: uiModule.clearHighlights,
-            
-            // Set detection
-            SET_NAMES: detectorModule.SET_NAMES,
-            getCardValue: detectorModule.getCardValue,
-            
-            // Damage integration
-            DamageIntegration: damageModule.DamageIntegration,
-            
-            // Module ID for reference
-            MODULE_ID
+              // Managers
+              UIManager,
+              CardController,
+              PileManager,
+              SocketManager,
+              EventHandlers,
+              DialogManager: dialogModule.DialogManager, // Add this
+              
+              // Convenience methods
+              renderHand: UIManager.renderHand.bind(UIManager),
+              renderTable: UIManager.renderTable.bind(UIManager),
+              showHandArea: UIManager.showHandArea.bind(UIManager),
+              getCurrentPlayerPiles: PileManager.getCurrentPlayerPiles.bind(PileManager),
+              getTablePile: PileManager.getTablePile.bind(PileManager),
+              discardCard: CardController.discardCard.bind(CardController),
+              
+              // Event handlers
+              handleHandSetClick: EventHandlers.handleHandSetClick.bind(EventHandlers),
+              handleTableSetClick: EventHandlers.handleTableSetClick.bind(EventHandlers),
+              
+              // UI enhancement functions
+              updateSetInfoBar: uiModule.updateSetInfoBar,
+              showSetTooltip: uiModule.showSetTooltip,
+              hideSetTooltip: uiModule.hideSetTooltip,
+              clearHighlights: uiModule.clearHighlights,
+              
+              // Set detection
+              SET_NAMES: detectorModule.SET_NAMES,
+              getCardValue: detectorModule.getCardValue,
+              
+              // Damage and Healing integration
+              DamageIntegration: damageModule.DamageIntegration,
+              HealingIntegration: healingModule.HealingIntegration,
+              
+              // Module ID for reference
+              MODULE_ID
             };
             
             console.log(`${MODULE_ID} | Global API exposed successfully`);
+          });
         });
-        });
+      });
     });
-    }
+  });
+  }
 }

@@ -63,3 +63,161 @@
   background: rgba(208, 183, 129, 0.1);
   box-shadow: 0 0 5px #d0b781;
 }
+
+/* Healing and Status Effect Styles for dialog-styles.css */
+
+/* Healing allocation dialog styles */
+.fu-healing-dialog .allocation-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+}
+
+.fu-healing-dialog .allocation-table th {
+    text-align: left;
+    padding: 5px;
+    border-bottom: 1px solid #555;
+}
+
+.fu-healing-dialog .allocation-table td {
+    padding: 5px;
+    border-bottom: 1px solid #333;
+}
+
+.fu-healing-dialog .character-cell {
+    display: flex;
+    align-items: center;
+}
+
+.fu-healing-dialog .allocation-cell {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.fu-healing-dialog .allocation-input {
+    width: 60px;
+    text-align: center;
+}
+
+.fu-healing-dialog .resource-status {
+    font-size: 0.9em;
+    color: #aaa;
+}
+
+.fu-healing-dialog #remaining-healing.overallocated {
+    color: #ff4444;
+}
+
+/* Status effect dialog styles */
+.fu-status-dialog .status-selector {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.fu-status-dialog .status-option {
+    flex-basis: 45%;
+}
+
+.fu-status-dialog .status-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.fu-status-dialog .status-label:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.fu-status-dialog .status-label input:checked + img {
+    filter: drop-shadow(0 0 3px yellow);
+}
+
+.fu-status-dialog .target-list {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+.fu-status-dialog .target-item {
+    display: flex;
+    align-items: center;
+    padding: 5px;
+    border-bottom: 1px solid #333;
+}
+
+.fu-status-dialog .even-mode {
+    color: #77ccff;
+}
+
+.fu-status-dialog .odd-mode {
+    color: #ff7777;
+}
+
+/* Chat message styles */
+.fu-healing-results h3,
+.fu-status-results h3 {
+    color: #d0b781;
+    border-bottom: 1px solid #d0b781;
+    padding-bottom: 3px;
+    margin-bottom: 5px;
+}
+
+.fu-healing-list,
+.fu-target-list {
+    list-style-type: none;
+    margin: 5px 0;
+    padding: 0;
+}
+
+.fu-hp-heal {
+    color: #00ff00;
+}
+
+.fu-mp-heal {
+    color: #4488ff;
+}
+
+.fu-status-list {
+    display: flex;
+    gap: 5px;
+    flex-wrap: wrap;
+    margin: 5px 0;
+    padding: 5px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.fu-via-gm {
+    font-style: italic;
+    color: #aaaaaa;
+    font-size: 0.9em;
+}
+
+.fu-pending-notice {
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid gold;
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 10px;
+    font-style: italic;
+}
+
+/* Status states for chat messages */
+.fu-status-pending {
+    color: #999;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.fu-status-applied {
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 0.9em;
+}

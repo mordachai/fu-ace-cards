@@ -266,9 +266,9 @@ export class EventHandlers {
   
   // Setup chat message interaction handlers
   static setupChatMessageHandlers() {
-    Hooks.on('renderChatMessage', (message, html) => {
-      // Check if this is a card set message
-      const messageContent = html.find('.fu-chat-cards-container');
+    Hooks.on('renderChatMessage', (message, html, data) => {
+    // Check if this is a card set message
+    const messageContent = html.find('.fu-chat-cards-container');
       if (messageContent.length > 0) {
         // Check if this is a Double Trouble set specifically
         const isDoubleTrouble = html.find('[data-set-type="double-trouble"]').length > 0;
@@ -279,6 +279,15 @@ export class EventHandlers {
         
         this.setupDamageButtons(html);
         this.setupResourceButtons(html);
+        
+        // Add handlers for healing buttons if present
+        this.setupHealingButtons(html);
+      }
+      
+      // Also check for healing result messages
+      if (html.find('.fu-healing-results, .fu-status-results').length > 0) {
+        // Add handlers for healing result messages
+        this.setupHealingResultHandlers(html);
       }
     });
   }
@@ -482,6 +491,230 @@ export class EventHandlers {
           // Show notification
           ui.notifications.info(`${actor.name} spent ${amount} MP`);
         }
+      }
+    });
+  }
+
+  static setupHealingButtons(html) {
+    // Make sure we have jQuery object - convert if needed
+    const $html = html instanceof jQuery ? html : $(html);
+  
+    // Handle healing allocation buttons
+    $html.find('[data-action="allocateHealing"]').click(async (event) => {
+      event.preventDefault();
+      const button = event.currentTarget;
+      const setType = button.dataset.setType;
+      const totalValue = parseInt(button.dataset.value || '0');
+      const playerId = button.dataset.playerId;
+      
+      console.log(`${MODULE_ID} | Healing Button Clicked | Set Type: ${setType}, Total Value: ${totalValue}`);
+      
+      // Log the selected targets for debugging
+      const selectedTargets = Array.from(game.user.targets);
+      console.log(`${MODULE_ID} | Selected targets:`, selectedTargets.map(t => ({
+        id: t.id,
+        name: t.name,
+        actorId: t.actor?.id,
+        actorName: t.actor?.name
+      })));
+      
+      // Disable the button while processing
+      button.disabled = true;
+      $(button).find("span").text("Processing...");
+      
+      // Get player character
+      const player = game.users.get(playerId);
+      const character = player?.character;
+      
+      if (!character) {
+        ui.notifications.error("Could not find character associated with this effect");
+        button.disabled = false;
+        $(button).find("span").text("Retry Healing");
+        return;
+      }
+      
+      // Get target tokens and their actors
+      const targets = Array.from(game.user.targets)
+        .filter(t => t.actor)
+        .map(t => t.actor);
+      
+      // Add the character to targets if not already included
+      if (!targets.some(t => t.id === character.id)) {
+        targets.unshift(character);
+        console.log(`${MODULE_ID} | Added character to targets`);
+      }
+      
+      console.log(`${MODULE_ID} | Processing targets:`, targets.map(t => t.name));
+      
+      if (targets.length === 0) {
+        ui.notifications.warn("No targets selected. Use the targeting tool to select allies.");
+        button.disabled = false;
+        $(button).find("span").text("Select Targets");
+        return;
+      }
+      
+      try {
+        // Check if HealingIntegration is available
+        if (!window.FuAceCards?.HealingIntegration) {
+          ui.notifications.error("Healing integration not available");
+          button.disabled = false;
+          $(button).find("span").text("Retry Healing");
+          return;
+        }
+        
+        let result;
+        
+        // Apply healing based on set type using the updated healing integration
+        switch (setType) {
+          case 'triple-support':
+            result = await window.FuAceCards.HealingIntegration.applyTripleSupportHealing(
+              totalValue,
+              character,
+              targets
+            );
+            break;
+            
+          case 'jackpot':
+            result = await window.FuAceCards.HealingIntegration.applyJackpotHealing(
+              character,
+              targets
+            );
+            break;
+            
+          default:
+            ui.notifications.warn(`Unknown healing set type: ${setType}`);
+            result = { applied: false };
+        }
+        
+        // Update button state based on result
+        if (result && result.applied) {
+          button.classList.add("disabled");
+          button.disabled = true;
+          $(button).find("span").text(`Healing Applied`);
+        } else {
+          button.disabled = false;
+          $(button).find("span").text(`Retry Healing`);
+        }
+      } catch (error) {
+        console.error("Error applying healing:", error);
+        ui.notifications.error("Failed to apply healing: " + error.message);
+        button.disabled = false;
+        $(button).find("span").text(`Retry Healing`);
+      }
+    });
+    
+    // Handle status effect buttons
+    html.find('[data-action="applyStatusEffects"]').click(async (event) => {
+      event.preventDefault();
+      const button = event.currentTarget;
+      const highestValue = parseInt(button.dataset.highestValue || '0');
+      const playerId = button.dataset.playerId;
+      
+      console.log(`${MODULE_ID} | Status Effect Button Clicked | Highest Value: ${highestValue}`);
+      
+      // Log selected targets
+      const selectedTargets = Array.from(game.user.targets);
+      console.log(`${MODULE_ID} | Selected targets for status effects:`, selectedTargets.map(t => ({
+        id: t.id,
+        name: t.name,
+        actorId: t.actor?.id,
+        actorName: t.actor?.name
+      })));
+      
+      // Disable the button while processing
+      button.disabled = true;
+      $(button).find("span").text("Processing...");
+      
+      // Get player character
+      const player = game.users.get(playerId);
+      const character = player?.character;
+      
+      if (!character) {
+        ui.notifications.error("Could not find character associated with this effect");
+        button.disabled = false;
+        $(button).find("span").text("Retry Status Effects");
+        return;
+      }
+      
+      // Check if we have any targets selected
+      if (selectedTargets.length === 0) {
+        ui.notifications.warn("No targets selected. Use the targeting tool to select characters.");
+        button.disabled = false;
+        $(button).find("span").text("Select Targets");
+        return;
+      }
+      
+      try {
+        // Show status effect dialog and process results
+        const result = await window.FuAceCards.HealingIntegration.applyFullStatusEffects(
+          highestValue,
+          character
+        );
+        
+        // Update button state based on result
+        if (result && result.applied) {
+          button.classList.add("disabled");
+          button.disabled = true;
+          $(button).find("span").text(`Status Effects Applied`);
+        } else {
+          button.disabled = false;
+          $(button).find("span").text(`Retry Status Effects`);
+        }
+      } catch (error) {
+        console.error("Error applying status effects:", error);
+        ui.notifications.error("Failed to apply status effects: " + error.message);
+        button.disabled = false;
+        $(button).find("span").text(`Retry Status Effects`);
+      }
+    });
+    
+    // Add handler for "Select All Allies" button if present
+    html.find('[data-action="selectAllAllies"]').click(async (event) => {
+      event.preventDefault();
+      
+      // Deselect all current targets
+      game.user.targets.forEach(t => t.setTarget(false, { releaseOthers: false }));
+      
+      // Select all allied tokens
+      let allyCount = 0;
+      canvas.tokens.placeables.forEach(token => {
+        if (token.actor) {
+          token.setTarget(true, { releaseOthers: false });
+          allyCount++;
+        }
+      });
+      
+      if (allyCount > 0) {
+        ui.notifications.info(`Selected ${allyCount} character tokens`);
+      } else {
+        ui.notifications.warn("No character tokens found on the scene");
+      }
+    });
+  }
+
+  // Also update the setupHealingResultHandlers method if you have one
+  static setupHealingResultHandlers(html) {
+    // Add handlers for any interactive elements in healing result messages
+    html.find('.fu-healing-results .fu-target-status').click(async (event) => {
+      event.preventDefault();
+      const button = event.currentTarget;
+      const targetId = button.dataset.targetId;
+      
+      // Highlight the token on the canvas if found
+      const token = canvas.tokens.placeables.find(t => 
+        t.id === targetId || t.actor?.id === targetId
+      );
+      
+      if (token) {
+        // Pan camera to token
+        canvas.animatePan({
+          x: token.center.x,
+          y: token.center.y,
+          scale: canvas.stage.scale.x
+        });
+        
+        // Highlight token
+        token.control({releaseOthers: true});
       }
     });
   }
