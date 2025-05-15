@@ -1,5 +1,11 @@
 /* Replace the existing joker dialog styling */
 
+.app.backgroundstyle .window-content {
+    background: url(/systems/projectfu/styles/static/ui/HojitasDouble_highres.png), -webkit-gradient(linear, right top, left top, from(rgba(17, 41, 41, 0.9)), to(rgba(38, 88, 83, 0.9))), -webkit-gradient(linear, left top, right top, from(#f5f5dc), to(#c9c7b8));
+    background: url(/systems/projectfu/styles/static/ui/HojitasDouble_highres.png), linear-gradient(270deg, rgba(17, 41, 41, 0.9) 0%, rgba(38, 88, 83, 0.9) 100%), linear-gradient(to right, #f5f5dc, #c9c7b8);
+    background-size: 100% auto;
+}
+
 /* Suit selector styling */
 .fu-suit-selector {
   width: 60px;

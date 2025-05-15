@@ -331,7 +331,7 @@ static async resetHand() {
   return true;
 }
   
-  // Activate a set on the table
+// Activate a set on the table
 static async activateTableSet(setData, playerId) {
   // Only the owner can activate their sets
   if (playerId !== game.userId) {
@@ -395,20 +395,31 @@ static async activateTableSet(setData, playerId) {
       }
     }
     
-    // Move the set cards from table to discard
-    await tablePile.pass(piles.discard, setData.cardIds, { chatNotification: false });
+    // Move the set cards from table to discard - FIXED APPROACH
+    // First, check if the cards exist in the table pile
+    const cardsToMove = [];
+    for (const cardId of setData.cardIds) {
+      if (tablePile.cards.has(cardId)) {
+        cardsToMove.push(cardId);
+      }
+    }
+    
+    // Only try to pass cards that exist in the table pile
+    if (cardsToMove.length > 0) {
+      await tablePile.pass(piles.discard, cardsToMove, { chatNotification: false });
+    }
     
     // Emit socket message and update UI
     SocketManager.emitSetActivated(setData.type, setData.cardIds);
     UIManager.renderTable();
     
-    // Apply healing/status effects if applicable
-    if (isHealingSet && character) {
-      // Pause briefly to let the chat message render
-      setTimeout(async () => {
-        await HealingIntegration.applySetEffect(setData, character, targets);
-      }, 100);
-    }
+    // // Apply healing/status effects if applicable
+    // if (isHealingSet && character) {
+    //   // Pause briefly to let the chat message render
+    //   setTimeout(async () => {
+    //     await HealingIntegration.applySetEffect(setData, character, targets);
+    //   }, 1000);
+    // }
     
     return true;
   } catch (error) {

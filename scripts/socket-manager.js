@@ -1,6 +1,35 @@
 // scripts/socket-manager.js
 import { MODULE_ID } from './settings.js';
 
+// Create a minimal InlineSourceInfo compatible class to work with Fabula Ultima's pipeline
+class MinimalSourceInfo {
+  constructor(name, actorUuid, itemUuid) {
+    this.name = name || "Card Effect";
+    this.actorUuid = actorUuid;
+    this.itemUuid = itemUuid;
+  }
+
+  resolveItem() {
+    if (!this.itemUuid) return null;
+    try {
+      return fromUuidSync(this.itemUuid);
+    } catch (error) {
+      console.error("Error resolving item:", error);
+      return null;
+    }
+  }
+
+  resolveActor() {
+    if (!this.actorUuid) return null;
+    try {
+      return fromUuidSync(this.actorUuid);
+    } catch (error) {
+      console.error("Error resolving actor:", error);
+      return null;
+    }
+  }
+}
+
 export class SocketManager {
   
   // Initialize socket listeners
@@ -76,6 +105,16 @@ export class SocketManager {
       console.log(`${MODULE_ID} | Processing statusConfirm socket message`);
       this.handleStatusConfirm(msg);
       break;
+
+    case 'applyDamage':
+      console.log(`${MODULE_ID} | Processing applyDamage socket message`);
+      this.handleApplyDamage(msg);
+      break;
+
+    case 'damageConfirm':
+      console.log(`${MODULE_ID} | Processing damageConfirm socket message`);
+      this.handleDamageConfirm(msg);
+      break;
       
     default:
       console.warn(`${MODULE_ID} | Unknown socket action:`, msg.action);
@@ -118,6 +157,131 @@ export class SocketManager {
     if (window.FuAceCards?.UIManager) {
       window.FuAceCards.UIManager.renderTable();
     }
+  }
+
+  static async handleApplyDamage(msg) {
+    // Only GM should process this
+    if (!game.user.isGM) return;
+    
+    const { targetId, finalDamage, damageType, sourceActorId } = msg;
+    
+    // Find the target token/actor
+    let token = canvas.tokens.placeables.find(t => t.id === targetId);
+    let actor = token?.actor;
+    
+    // If not found as token, try as actor ID
+    if (!actor) {
+      actor = game.actors.get(targetId);
+      if (actor) {
+        token = canvas.tokens.placeables.find(t => t.actor?.id === actor.id);
+      }
+    }
+    
+    if (!actor) {
+      console.error(`${MODULE_ID} | Cannot find target for damage: ${targetId}`);
+      return;
+    }
+    
+    try {
+      // Create a proper source object for the system
+      const sourceActor = sourceActorId ? game.actors.get(sourceActorId) : null;
+      const sourceInfo = new MinimalSourceInfo(
+        sourceActor?.name || "Card Effect",
+        sourceActor?.uuid || null,
+        null
+      );
+      
+      // Apply damage using system method if available
+      if (game.projectfu && typeof game.projectfu.applyDamage === 'function') {
+        try {
+          await game.projectfu.applyDamage(
+            damageType, 
+            Math.abs(finalDamage), 
+            sourceInfo, 
+            [actor], 
+            []
+          );
+          // Success, send confirmation
+          this.emitDamageConfirm(targetId, finalDamage, damageType, msg.senderId);
+          return;
+        } catch (error) {
+          console.warn("System damage application failed, falling back to manual method:", error);
+        }
+      }
+      
+      // Apply damage manually
+      const hpValue = actor.system.resources.hp.value;
+      const hpMax = actor.system.resources.hp.max;
+      
+      if (finalDamage < 0) {
+        // Healing (absorption)
+        actor.update({
+          "system.resources.hp.value": Math.min(hpValue - finalDamage, hpMax)
+        });
+        
+        // Show floating text
+        if (token) {
+          canvas.interface.createScrollingText(token.center, `+${Math.abs(finalDamage)}`, {
+            fontSize: 24,
+            fill: "#00ff00",
+            stroke: 0x000000,
+            strokeThickness: 4
+          });
+        }
+      } else {
+        // Damage
+        actor.update({
+          "system.resources.hp.value": Math.max(hpValue - finalDamage, 0)
+        });
+        
+        // Show floating text
+        if (token) {
+          canvas.interface.createScrollingText(token.center, `-${finalDamage}`, {
+            fontSize: 24,
+            fill: "#ff0000",
+            stroke: 0x000000,
+            strokeThickness: 4
+          });
+        }
+      }
+      
+      // Send confirmation
+      this.emitDamageConfirm(targetId, finalDamage, damageType, msg.senderId);
+      
+    } catch (error) {
+      console.error(`${MODULE_ID} | Error applying damage via socket:`, error);
+    }
+  }
+
+  // Handle damage confirmation
+  static handleDamageConfirm(msg) {
+      if (msg.originalSenderId !== game.userId) return;
+      console.log(`${MODULE_ID} | Damage confirmed for: ${msg.targetId}`);
+  }
+
+  // Emit method for damage
+  static emitApplyDamage(targetId, finalDamage, damageType, sourceActorId, affinityMessage) {
+      game.socket.emit(`module.${MODULE_ID}`, {
+          action: 'applyDamage',
+          targetId,
+          finalDamage,
+          damageType,
+          sourceActorId,
+          affinityMessage,
+          senderId: game.userId
+      });
+  }
+
+  // Emit confirmation back to sender
+  static emitDamageConfirm(targetId, finalDamage, damageType, originalSenderId) {
+      game.socket.emit(`module.${MODULE_ID}`, {
+          action: 'damageConfirm',
+          targetId,
+          finalDamage,
+          damageType,
+          originalSenderId,
+          senderId: game.userId
+      });
   }
 
   // Handle healing request from player

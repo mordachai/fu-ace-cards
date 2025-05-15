@@ -231,18 +231,21 @@ export class UIManager {
       }, 10000);
     }
   }
+
+  static getPlayerColor(userId) {
+  // Add caching to avoid repeatedly getting the same color
+  if (!this.playerColorCache) {
+    this.playerColorCache = new Map();
+  }
   
-  // Apply player color to card element
-  static applyPlayerColor(cardElement, card) {
-    if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.SHOW_PLAYER_COLORS)) return;
-    
-    const ownerId = card.getFlag(MODULE_ID, 'ownerId');
-    if (ownerId) {
-      const color = this.getPlayerColor(ownerId);
-      cardElement.dataset.ownerId = ownerId;
-      cardElement.style.setProperty('--player-color', color);
-      cardElement.classList.add('fu-card-owned');
-    }
+  if (this.playerColorCache.has(userId)) {
+    return this.playerColorCache.get(userId);
+  }
+  
+  const user = game.users.get(userId);
+  const color = user?.color || '#FFFFFF';
+  this.playerColorCache.set(userId, color);
+  return color;
   }
 
   // Apply player color to card element

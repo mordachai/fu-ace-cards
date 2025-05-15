@@ -1,7 +1,7 @@
 {{!-- templates/healing-allocation.hbs --}}
 <form>
-    <div class="desc mb-3">
-        <div class="resource-content">
+    <div class="desc mb-3 projectfu">
+        <div class="resource-content projectfu window-content">
             <div class="inline-desc form-group resource-content gap-5" style="padding: 5px 10px;">
                 <label class="resource-label" style="flex-grow: 8;">
                     <b>Total Healing Available</b>
@@ -35,8 +35,8 @@
                 {{#each targets}}
                 <tr data-actor-id="{{id}}" data-token-id="{{tokenId}}">
                     <td class="character-cell">
-                        <img src="{{img}}" width="24" height="24" style="margin-right: 5px;"/>
-                        <span>{{name}}</span>
+                        <img src="{{img}}" width="30" height="30" style="margin-right: 5px; border:none"/>
+                        <span><strong>{{name}}</strong></span>
                     </td>
                     <td class="allocation-cell">
                         <input type="number" id="hp-{{id}}" name="hp-{{id}}" 
@@ -60,10 +60,10 @@
 
     <div class="desc mb-3">
         <div class="form-group">
-            <button type="button" id="split-evenly" class="btn">
+            <button type="button" id="split-evenly" class="projectfu button-style">
                 <i class="fas fa-balance-scale"></i> Split Evenly
             </button>
-            <button type="button" id="reset-allocation" class="btn">
+            <button type="button" id="reset-allocation" class="projectfu button-style">
                 <i class="fas fa-undo"></i> Reset
             </button>
         </div>
@@ -94,7 +94,7 @@
         }
         
         // Update apply button state
-        const applyBtn = document.querySelector('.dialog-button[data-button="yes"]');
+        const applyBtn = document.querySelector('.projectfu button-style[data-button="yes"]');
         if (applyBtn) {
             applyBtn.disabled = remaining < 0;
         }
