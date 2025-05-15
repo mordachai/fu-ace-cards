@@ -3,9 +3,9 @@
     <div class="desc mb-3">
         <div class="mode-indicator">
             {{#if isEven}}
-            <p class="notes even-mode">Highest card value is even ({{highestValue}}): Select status effects to <strong>remove from allies</strong>.</p>
+            <p class="notes even-mode">Highest card value is even: Select status effects to <strong>remove from allies</strong>.</p>
             {{else}}
-            <p class="notes odd-mode">Highest card value is odd ({{highestValue}}): Select status effects to <strong>apply to enemies</strong>.</p>
+            <p class="notes odd-mode">Highest card value is odd: Select status effects to <strong>apply to enemies</strong>.</p>
             {{/if}}
         </div>
     </div>
@@ -25,12 +25,12 @@
     </div>
 
     <div class="desc mb-3">
-        <p class="notes">Targets {{#if isEven}}(allies){{else}}(enemies){{/if}}:</p>
+        <p class="notes">Targets:</p>
         <ul class="target-list">
-            {{#each targets}}
-            <li class="target-item">
-                <img src="{{this.img}}" width="24" height="24" style="margin-right: 5px;"/>
-                <span>{{this.name}}</span>
+            {{#each targetTokens}}
+            <li class="target-item" data-token-id="{{id}}">
+                <img src="{{actor.img}}" width="24" height="24" style="margin-right: 5px;"/>
+                <span>{{actor.name}}</span>
             </li>
             {{/each}}
         </ul>

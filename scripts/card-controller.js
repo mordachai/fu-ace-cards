@@ -8,6 +8,7 @@ import { DeckManager } from './deck-manager.js';
 import { SET_NAMES } from './set-detector.js';
 import { getCardValue } from './set-detector.js';
 import { DamageIntegration } from './damage-integration.js';
+import { HealingIntegration } from './healing-integration.js';
 
 export class CardController {
   
@@ -350,14 +351,12 @@ static async activateTableSet(setData, playerId) {
     type: CONST.CHAT_MESSAGE_TYPES.OTHER
   };
   
-  await ChatMessage.create(chatData);
+  // Create the chat message first to show the set activation
+  const message = await ChatMessage.create(chatData);
   
   try {
     // Get the player's discard pile
-    // For class-based DeckManager:
     const piles = getPlayerPiles(playerId);
-    // OR for function-based:
-    // const piles = getPlayerPiles(playerId);
     
     if (!piles?.discard) {
       ui.notifications.error("Could not find your discard pile");
@@ -370,12 +369,46 @@ static async activateTableSet(setData, playerId) {
       return false;
     }
     
+    // Check if this is a healing or status effect set
+    const isHealingSet = HealingIntegration.isHealingOrStatusSet(setData.type);
+    
+    // Get targets before moving cards from table
+    let targets = [];
+    if (isHealingSet) {
+      // For healing sets, we want allies as targets
+      const isFullStatusOdd = setData.type === 'full-status' && Math.max(...setData.values) % 2 !== 0;
+      
+      // For odd Full Status, we want enemies; for all other healing sets, we want allies
+      if (isFullStatusOdd) {
+        targets = Array.from(game.user.targets)
+          .filter(t => t.actor && t.disposition === -1)
+          .map(t => t.actor);
+      } else {
+        targets = Array.from(game.user.targets)
+          .filter(t => t.actor && t.disposition === 1)
+          .map(t => t.actor);
+      }
+      
+      // Include the player's character as a target for healing sets
+      if (character && setData.type !== 'full-status' && !targets.some(t => t.id === character.id)) {
+        targets.unshift(character);
+      }
+    }
+    
     // Move the set cards from table to discard
     await tablePile.pass(piles.discard, setData.cardIds, { chatNotification: false });
     
     // Emit socket message and update UI
     SocketManager.emitSetActivated(setData.type, setData.cardIds);
     UIManager.renderTable();
+    
+    // Apply healing/status effects if applicable
+    if (isHealingSet && character) {
+      // Pause briefly to let the chat message render
+      setTimeout(async () => {
+        await HealingIntegration.applySetEffect(setData, character, targets);
+      }, 100);
+    }
     
     return true;
   } catch (error) {
@@ -418,6 +451,23 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
   // Get highest value for effects that need it
   const highestValue = Math.max(...setData.values);
   
+  // Calculate healing data for healing sets
+  const totalValue = setData.values.reduce((sum, val) => sum + val, 0);
+  const isHealingSet = ['jackpot', 'triple-support'].includes(setData.type);
+  const isStatusSet = setData.type === 'full-status';
+  const healingData = isHealingSet ? {
+    type: setData.type,
+    value: setData.type === 'jackpot' ? 777 : totalValue * 3
+  } : null;
+  
+  // Status effect data for Full Status
+  const statusData = isStatusSet ? {
+    highestValue: highestValue,
+    isEven: highestValue % 2 === 0,
+    mode: highestValue % 2 === 0 ? 'remove' : 'apply',
+    target: highestValue % 2 === 0 ? 'allies' : 'enemies'
+  } : null;
+  
   // Prepare data for template
   const templateData = {
     debugInfo: game.user.isGM && game.settings.get(MODULE_ID, 'debug'), // Only if you have a debug setting
@@ -427,6 +477,7 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
     setName: SET_NAMES[setData.type],
     playerName: displayName,
     actorId: actorId,
+    playerId: playerId,
     mpCost: mpCost,
     effect: description.effect,
     comboDescription: description.base,
@@ -434,12 +485,23 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
     isDoubleTrouble: isDoubleTrouble,
     cards: cardsWithSuits,
     availableSuits: availableSuits,
+    
+    // Damage data
     hasDamage: damageData !== null,
     damageValue: damageData?.value || 0,
     damageType: damageData?.type || '',
     damageTypeLabel: damageData?.type ? game.i18n.localize(`FU.Damage${window.capitalize(damageData.type)}`) || damageData.type.toUpperCase() : '',
     highRoll: damageData?.highRoll || 0,
-    baseDamage: damageData?.baseDamage || 0
+    baseDamage: damageData?.baseDamage || 0,
+    
+    // Healing data
+    isHealingSet: isHealingSet,
+    healingData: healingData,
+    
+    // Status effect data
+    isStatusSet: isStatusSet,
+    statusData: statusData,
+    totalValue: totalValue
   };
   
   // Render the template

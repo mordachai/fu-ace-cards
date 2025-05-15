@@ -184,18 +184,41 @@ export class UIManager {
         // Clean up tooltips before moving cards
         this.cleanupAllTooltips();
         
-        // Use CardController to handle the actual card play
-        await window.FuAceCards.CardController.playCardToTable(c);
+        // Use CardController to handle the actual card play - add safety check
+        if (window.FuAceCards?.CardController) {
+          await window.FuAceCards.CardController.playCardToTable(c);
+        } else {
+          // Direct fallback implementation in case CardController isn't available
+          console.warn(`${MODULE_ID} | CardController not found, using fallback implementation`);
+          try {
+            const tablePile = getTablePile();
+            if (tablePile) {
+              await hand.pass(tablePile, [c.id], { chatNotification: false });
+              this.renderHand();
+              this.renderTable();
+            }
+          } catch (error) {
+            console.error("Error playing card:", error);
+            this.renderHand();
+          }
+        }
       });
+      
+      // Apply player color
+      this.applyPlayerColor(d, c);
       
       handCards.appendChild(d);
     }
     
     // Update set info bar for hand with click handler
     if (hand.cards.size > 0) {
-      updateSetInfoBar(Array.from(hand.cards), 'hand', window.FuAceCards.handleHandSetClick);
+        // Check if window.FuAceCards exists and has handleHandSetClick method
+        const handleSetClick = window.FuAceCards?.handleHandSetClick || 
+                              ((indicator) => console.warn(`${MODULE_ID} | handleHandSetClick not found`));
+        
+        updateSetInfoBar(Array.from(hand.cards), 'hand', handleSetClick);
     }
-  }
+}
   
   // Show the hand area
   static showHandArea() {

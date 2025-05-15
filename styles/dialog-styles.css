@@ -64,11 +64,13 @@
   box-shadow: 0 0 5px #d0b781;
 }
 
+/* Healing and Status Effect Styles for dialog-styles.css */
 
-/* Healing Allocation Dialog Styles */
+/* Healing allocation dialog styles */
 .fu-healing-dialog .allocation-table {
     width: 100%;
     border-collapse: collapse;
+    margin-top: 10px;
 }
 
 .fu-healing-dialog .allocation-table th {
@@ -107,7 +109,7 @@
     color: #ff4444;
 }
 
-/* Status Effect Dialog Styles */
+/* Status effect dialog styles */
 .fu-status-dialog .status-selector {
     display: flex;
     flex-wrap: wrap;
@@ -158,7 +160,7 @@
     color: #ff7777;
 }
 
-/* Chat Message Styles */
+/* Chat message styles */
 .fu-healing-results h3,
 .fu-status-results h3 {
     color: #d0b781;
@@ -190,4 +192,32 @@
     padding: 5px;
     background: rgba(0, 0, 0, 0.2);
     border-radius: 4px;
+}
+
+.fu-via-gm {
+    font-style: italic;
+    color: #aaaaaa;
+    font-size: 0.9em;
+}
+
+.fu-pending-notice {
+    background: rgba(255, 215, 0, 0.1);
+    border: 1px solid gold;
+    border-radius: 4px;
+    padding: 8px;
+    margin-top: 10px;
+    font-style: italic;
+}
+
+/* Status states for chat messages */
+.fu-status-pending {
+    color: #999;
+    font-style: italic;
+    font-size: 0.9em;
+}
+
+.fu-status-applied {
+    color: #4CAF50;
+    font-weight: bold;
+    font-size: 0.9em;
 }
