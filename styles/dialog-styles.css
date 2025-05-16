@@ -1,10 +1,10 @@
 /* Replace the existing joker dialog styling */
 
-.app.backgroundstyle .window-content {
+ .app.backgroundstyle .window-content {
     background: url(/systems/projectfu/styles/static/ui/HojitasDouble_highres.png), -webkit-gradient(linear, right top, left top, from(rgba(17, 41, 41, 0.9)), to(rgba(38, 88, 83, 0.9))), -webkit-gradient(linear, left top, right top, from(#f5f5dc), to(#c9c7b8));
     background: url(/systems/projectfu/styles/static/ui/HojitasDouble_highres.png), linear-gradient(270deg, rgba(17, 41, 41, 0.9) 0%, rgba(38, 88, 83, 0.9) 100%), linear-gradient(to right, #f5f5dc, #c9c7b8);
     background-size: 100% auto;
-}
+} 
 
 /* Suit selector styling */
 .fu-suit-selector {
@@ -226,4 +226,48 @@
     color: #4CAF50;
     font-weight: bold;
     font-size: 0.9em;
+}
+
+/* Enhanced number input styling */
+.allocation-input {
+    -moz-appearance: textfield; /* Firefox */
+}
+
+.allocation-input::-webkit-inner-spin-button,
+.allocation-input::-webkit-outer-spin-button {
+    opacity: 1; /* Make spinners always visible */
+    height: 1.5em; /* Increase height for better clickability */
+}
+
+/* Vertically align cell content */
+.character-cell {
+    display: flex;
+    align-items: center;
+}
+
+.allocation-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* Make number spinners visible and more clickable */
+input[type="number"] {
+    -moz-appearance: textfield; /* Base style for Firefox */
+}
+
+input[type="number"]::-webkit-inner-spin-button, 
+input[type="number"]::-webkit-outer-spin-button { 
+    opacity: 1;
+    height: 24px;
+    width: 14px;
+    position: relative;
+    right: -2px;
+    cursor: pointer;
+}
+
+/* Ensure arrows stay visible */
+input[type="number"]:hover::-webkit-inner-spin-button,
+input[type="number"]:focus::-webkit-inner-spin-button {
+    opacity: 1;
 }
