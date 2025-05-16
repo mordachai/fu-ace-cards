@@ -37,7 +37,7 @@
             </div>
             <div class="allocation-cell">
                 <input type="number" id="hp-{{id}}" name="hp-{{id}}" 
-                       class="allocation-input hp-input" 
+                       class="allocation-input hp-input fu-healing-dialog" 
                        value="{{allocatedHP}}" min="0" max="{{subtract hp.max hp.current}}"
                        data-actor-id="{{id}}" data-type="hp"
                        style="width: 60px; text-align: center;">
@@ -45,7 +45,7 @@
             </div>
             <div class="allocation-cell">
                 <input type="number" id="mp-{{id}}" name="mp-{{id}}" 
-                       class="allocation-input mp-input" 
+                       class="allocation-input mp-input fu-healing-dialog" 
                        value="{{allocatedMP}}" min="0" max="{{subtract mp.max mp.current}}"
                        data-actor-id="{{id}}" data-type="mp"
                        style="width: 60px; text-align: center;">
@@ -69,29 +69,6 @@
     </div>
 </form>
 
-<style>
-/* Make number spinners visible */
-input[type="number"] {
-    -moz-appearance: textfield; /* Firefox */
-}
-
-input[type="number"]::-webkit-inner-spin-button, 
-input[type="number"]::-webkit-outer-spin-button { 
-    opacity: 1;
-    height: 20px;
-}
-
-.allocation-cell {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-}
-
-.overallocated {
-    color: #ff4444;
-}
-</style>
-
 <script>
     // Handle allocation changes
     function updateRemainingHealing() {
@@ -99,7 +76,7 @@ input[type="number"]::-webkit-outer-spin-button {
         let allocated = 0;
         
         // Sum all allocation inputs
-        document.querySelectorAll('.allocation-input').forEach(input => {
+        document.querySelectorAll('.allocation-input.fu-healing-dialog').forEach(input => {
             allocated += parseInt(input.value) || 0;
         });
         
@@ -145,7 +122,7 @@ input[type="number"]::-webkit-outer-spin-button {
     
     // Reset all allocations
     function resetAllocation() {
-        document.querySelectorAll('.allocation-input').forEach(input => {
+        document.querySelectorAll('.allocation-input.fu-healing-dialog').forEach(input => {
             input.value = 0;
         });
         
@@ -155,7 +132,7 @@ input[type="number"]::-webkit-outer-spin-button {
     // Add event listeners once dialog is rendered
     setTimeout(() => {
         // Input change handlers
-        document.querySelectorAll('.allocation-input').forEach(input => {
+        document.querySelectorAll('.allocation-input.fu-healing-dialog').forEach(input => {
             input.addEventListener('change', updateRemainingHealing);
             input.addEventListener('input', updateRemainingHealing);
         });
