@@ -348,7 +348,7 @@ static async activateTableSet(setData, playerId) {
     user: game.userId,
     speaker: ChatMessage.getSpeaker({ actor: character }),
     content: await this.createSetActivationMessage(setData, playerId, mpCost),
-    type: CONST.CHAT_MESSAGE_TYPES.OTHER
+    style: CONST.CHAT_MESSAGE_STYLES.OTHER // Changed type to style and TYPES to STYLES
   };
   
   // Create the chat message first to show the set activation
@@ -444,6 +444,7 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
 
   // Add flag for sets that need damage type selection
   const isDoubleTrouble = setData.type === 'double-trouble';
+  const isMagicPair = setData.type === 'magic-pair';
   
   // Determine if this set targets multiple enemies or is single-target
   const isMultiTarget = ['jackpot', 'magic-flush', 'blinding-flush', 'full-status', 'triple-support', 'forbidden-monarch'].includes(setData.type);
@@ -494,6 +495,7 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
     comboDescription: description.base,
     isMultiTarget: isMultiTarget, // Added for targeting info
     isDoubleTrouble: isDoubleTrouble,
+    isMagicPair: isMagicPair,
     cards: cardsWithSuits,
     availableSuits: availableSuits,
     

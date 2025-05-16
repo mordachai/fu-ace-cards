@@ -284,26 +284,33 @@ export class EventHandlers {
   // Setup chat message interaction handlers
   static setupChatMessageHandlers() {
     Hooks.on('renderChatMessage', (message, html, data) => {
-    // Check if this is a card set message
-    const messageContent = html.find('.fu-chat-cards-container');
+      // Check if this is a card set message
+      const messageContent = html.find('.fu-chat-cards-container');
       if (messageContent.length > 0) {
-        // Check if this is a Double Trouble set specifically
+        console.log(`${MODULE_ID} | Processing chat message with card container`);
+        
+        // Check for set types using either data attribute or section class
         const isDoubleTrouble = html.find('[data-set-type="double-trouble"]').length > 0;
+        const isMagicPair = html.find('[data-set-type="magic-pair"]').length > 0 || 
+                          html.find('.weapon-attack-check').length > 0;
+        
+        console.log(`${MODULE_ID} | Message contains: Double Trouble: ${isDoubleTrouble}, Magic Pair: ${isMagicPair}`);
         
         if (isDoubleTrouble) {
           this.setupDoubleTroubleCardSelection(html);
         }
         
+        if (isMagicPair) {
+          this.setupMagicPairCardSelection(html);
+        }
+        
         this.setupDamageButtons(html);
         this.setupResourceButtons(html);
-        
-        // Add handlers for healing buttons if present
         this.setupHealingButtons(html);
       }
       
       // Also check for healing result messages
       if (html.find('.fu-healing-results, .fu-status-results').length > 0) {
-        // Add handlers for healing result messages
         this.setupHealingResultHandlers(html);
       }
     });
@@ -375,15 +382,116 @@ export class EventHandlers {
       
       // Update the system's damage label (the one you shared in the DOM)
       const damageLabel = html.find('.damageType');
-      if (damageLabel.length) {
+        if (damageLabel.length) {
+            // Remove existing damage type classes
+            damageLabel.removeClass('fire ice earth air light dark physical');
+            
+            // Add the new damage type class
+            damageLabel.addClass(damageType);
+            
+            // Update tooltip for endcap
+            const endcap = damageLabel.find('.endcap');
+            if (endcap.length) {
+              const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
+                                      damageType.charAt(0).toUpperCase() + damageType.slice(1);
+              endcap.attr('data-tooltip', damageTypeDisplay);
+              
+              // Use the correct icon class based on damage type
+              const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;
+              endcap.html(`<i class="fua ${iconClass}"></i>`);
+            }
+      }
+    });
+    
+    // Initialize the apply damage button to indicate selection is needed
+    const damageButton = html.find('[data-action="applyDamageSelected"]');
+    if (damageButton.length) {
+      damageButton.find('span').html(`Select damage type <i class="icon fas fa-heart-crack"></i>`);
+    }
+  }
+
+  // Setup Magic Pair card selection in chat
+  static setupMagicPairCardSelection(html) {
+    // Find the cards in this message
+    const cardImages = html.find('.fu-chat-card-img');
+    
+    // Add clickable class to all cards
+    cardImages.addClass('fu-card-clickable');
+    
+    // Define the mapping for damage types to icon classes
+    const damageTypeToIconClass = {
+      'fire': 'fu-fire',
+      'air': 'fu-wind',   // Special case: air damage uses fu-wind icon class
+      'earth': 'fu-earth',
+      'ice': 'fu-ice',
+      'light': 'fu-light',
+      'dark': 'fu-dark',
+      'physical': 'fu-physical'
+    };
+    
+    // Define suit to damage type mapping
+    const suitToDamageType = {
+      'hearts': 'fire',
+      'heart': 'fire',
+      'diamonds': 'air',
+      'diamond': 'air',
+      'clubs': 'earth',
+      'club': 'earth',
+      'spades': 'ice',
+      'spade': 'ice',
+      // Add a default for joker
+      'joker': 'physical' 
+    };
+    
+    // Define display names for damage types
+    const damageTypeDisplayNames = {
+      'fire': 'Fire',
+      'air': 'Air',
+      'earth': 'Earth',
+      'ice': 'Ice',
+      'light': 'Light',
+      'dark': 'Dark',
+      'physical': 'Physical'
+    };
+    
+    // Add click handler to each card
+    cardImages.on('click', function(event) {
+      const cardElement = $(this);
+      let cardSuit = cardElement.data('card-suit');
+      
+      // If suit data not directly available, try to extract from the card name
+      if (!cardSuit) {
+        const cardName = cardElement.attr('title') || '';
+        // Extract suit from name (hearts, diamonds, clubs, spades)
+        const suitMatch = cardName.toLowerCase().match(/(heart|diamond|club|spade)s?/);
+        cardSuit = suitMatch ? suitMatch[0] : '';
+      }
+      
+      const damageType = suitToDamageType[cardSuit.toLowerCase()] || 'physical';
+      
+      // Remove selected class from any previously selected card
+      cardImages.removeClass('fu-selected-card');
+      
+      // Add selected class to this card
+      cardElement.addClass('fu-selected-card');
+      
+      // Specifically target the weapon attack section for Magic Pair
+      const weaponLabel = html.find('.weapon-attack-check .damageType');
+      if (weaponLabel.length) {
+        // Update the damage text with the element type
+        const damageText = weaponLabel.find('#weapon-damage-text');
+        if (damageText.length) {
+          damageText.text(damageTypeDisplayNames[damageType]);
+        }
+        
         // Remove existing damage type classes
-        damageLabel.removeClass('fire ice earth air light dark');
+        weaponLabel.removeClass('fire ice earth air light dark physical');
         
         // Add the new damage type class
-        damageLabel.addClass(damageType);
+        weaponLabel.addClass(damageType);
         
         // Update tooltip for endcap
-        const endcap = damageLabel.find('.endcap');
+        const endcap = weaponLabel.find('.endcap');
         if (endcap.length) {
           const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
                                   damageType.charAt(0).toUpperCase() + damageType.slice(1);
@@ -393,14 +501,16 @@ export class EventHandlers {
           const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;
           endcap.html(`<i class="fua ${iconClass}"></i>`);
         }
+        
+        // Update instruction text to match the damage type
+        const notesText = html.find('.weapon-attack-check .notes');
+        if (notesText.length) {
+          notesText.html(`Weapon attacks will deal <strong>${damageType}</strong> damage regardless of weapon type.`);
+        }
       }
+      
+      console.log(`Selected ${cardSuit} card, damage type: ${damageType}`);
     });
-    
-    // Initialize the apply damage button to indicate selection is needed
-    const damageButton = html.find('[data-action="applyDamageSelected"]');
-    if (damageButton.length) {
-      damageButton.find('span').html(`Select damage type <i class="icon fas fa-heart-crack"></i>`);
-    }
   }
   
   // Setup damage buttons in chat
