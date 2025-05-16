@@ -1,8 +1,9 @@
 // scripts/ui-enhancements.js
 import { MODULE_ID, SETTINGS_KEYS } from './settings.js';
 import { detectFabulaUltimaSets, SET_NAMES, getSetColor, getCardValue } from './set-detector.js';
-import { getCurrentPlayerPiles, getTablePile } from './main.js';
+import { getCurrentPlayerPiles, getTablePile } from './pile-manager.js';
 import { DeckManager } from './deck-manager.js';
+//import { hideSetTooltip, clearHighlights } from './ui-enhancements.js';
 
 // Player color cache
 const playerColorCache = new Map();
@@ -420,11 +421,9 @@ export function createSetTooltip(setData) {
   tooltip.innerHTML = `
     <div class="tooltip-header">
       <span class="set-name">${SET_NAMES[setData.type]}</span>
+      <span class="tooltip-requirements">${description.base}</span>
       <span class="mp-cost ${canAfford ? '' : 'insufficient'}">${mpCost} MP</span>
-    </div>
-    <div class="tooltip-requirements">
-      <strong>Requirements:</strong> ${description.base}
-    </div>
+    </div>    
     <div class="tooltip-cards">
       <strong>Your cards:</strong> ${description.cards}
     </div>

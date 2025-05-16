@@ -1,16 +1,28 @@
 <div>
   <header class="title-desc chat-header flexrow">
+    <a data-link="" draggable="true" data-uuid="Actor.YMKqyPRdD9FS9PIV.Item.lYC4cepfhWlG3g1t" data-type="Item" data-tooltip="Magic Cards">
+      <img src="systems/projectfu/styles/static/compendium/classes/ace-card/magic_cards.png" alt="Magic Cards" data-item-id="lYC4cepfhWlG3g1t" class="item-img">
+    </a>
     <h2 style="flex-grow:8">{{setName}}</h2>
   </header>
   
-  <div class="fu-tags">
-    <div class="fu-tag">
-      {{playerName}}
-    </div>
-    <div class="fu-tag">
-      {{mpCost}} MP
-    </div>
+<div class="fu-tags">
+  <div class="fu-tag">
+    Magic Cards
   </div>
+  {{#if isMultiTarget}}
+    <div class="fu-tag">
+      Multiple
+    </div>
+  {{else}}
+    <div class="fu-tag">
+      Single
+    </div>
+  {{/if}}
+  <div class="fu-tag">
+    {{mpCost}} MP
+  </div>
+</div>
   
   <div class="chat-desc">
     <details open>
@@ -102,10 +114,74 @@
     </a>
   </div>
   {{/if}}
-  
+
+  {{#if isHealingSet}}
+  <div class="healing-check">
+    <header class="title-desc chat-header flexrow desc">
+      <h2 style="flex-grow:4">Healing</h2>
+    </header>
+    
+    <div class="detail-desc flex-group-center flexrow desc">
+      <a>
+        <label class="healingType grid grid-3col">
+          <div class="startcap"></div>
+          <div>{{healingData.value}}</div>
+          <div class="endcap" data-tooltip="HP & MP">
+            <i class="fua fu-life"></i>
+          </div>
+        </label>
+      </a>
+    </div>
+  </div>
+
+  <div class="fu-tags flexrow gap-5">
+    <a data-action="allocateHealing" 
+      data-set-type="{{setType}}" 
+      data-value="{{totalValue}}" 
+      data-player-id="{{playerId}}"
+      data-tooltip="Click to allocate and apply healing to targeted allies.">
+      <span class="fu-tag button flex-group-center gap-5" style="width:100%;white-space:nowrap">
+        Allocate Healing
+        <i class="icon fas fa-heart-pulse"></i>
+      </span>
+    </a>
+  </div>
+  {{/if}}
+
+  {{#if isStatusSet}}
+  <div class="status-check">
+    <header class="title-desc chat-header flexrow desc">
+      <h2 style="flex-grow:4">Status Effects</h2>
+    </header>
+    
+    <div class="detail-desc flex-group-center flexrow desc">
+      <div class="status-mode">
+        {{#if statusData.isEven}}
+        <span class="status-remove">Remove 2 status effects from allies</span>
+        {{else}}
+        <span class="status-apply">Apply 2 status effects to enemies</span>
+        {{/if}}
+      </div>
+    </div>
+  </div>
+
+  <div class="fu-tags flexrow gap-5">
+    <a data-action="applyStatusEffects" 
+      data-highest-value="{{highestValue}}" 
+      data-player-id="{{playerId}}"
+      data-tooltip="Click to select status effects to {{#if statusData.isEven}}remove from allies{{else}}apply to enemies{{/if}}.">
+      <span class="fu-tag button flex-group-center gap-5" style="width:100%;white-space:nowrap">
+        Select Status Effects
+        <i class="icon fas fa-bolt-lightning"></i>
+      </span>
+    </a>
+  </div>
+  {{/if}}
+
   <div class="fu-tags flexrow gap-5">
     <a data-action="applyResourceLoss" data-resource="mp" data-amount="{{mpCost}}" data-actor="{{actorId}}" data-tooltip="Click to spend MP">
       <span class="fu-tag button flex-group-center gap-5" style="width:100%;white-space:nowrap">Spend {{mpCost}} <i class="icon fas fa-hat-wizard"></i></span>
     </a>
   </div>
+  
 </div>

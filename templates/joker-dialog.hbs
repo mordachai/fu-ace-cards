@@ -1,0 +1,71 @@
+<div class="dialog-content">
+  <form>
+    <div class="desc mb-3">
+      <div class="form-group">
+        <label><b>Select Suit</b></label>
+        <div class="grid grid-4col gap-2" id="suit-group">
+          {{#each suits}}
+            <div class="fu-suit-selector {{#if (eq ../currentSuit this.value)}}active{{/if}}" 
+                data-value="{{this.value}}">
+              <div class="suit-icon" style="color: {{this.color}}">{{this.symbol}}</div>
+              <div class="suit-name">【{{this.element}}】</div>
+            </div>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+    
+    <div class="desc mb-3">
+      <div class="form-group">
+        <label><b>Select Value</b></label>
+        <div class="grid grid-7col gap-1" id="value-group">
+          {{#each values}}
+            <div class="fu-value-selector {{#if (eq ../currentValue this)}}active{{/if}}" data-value="{{this}}">
+              {{this}}
+            </div>
+          {{/each}}
+        </div>
+      </div>
+    </div>
+    
+    <input type="hidden" id="selected-suit" name="selected-suit" value="{{currentSuit}}">
+    <input type="hidden" id="selected-value" name="selected-value" value="{{currentValue}}">
+  </form>
+</div>
+
+<script>
+  // Add click handlers once dialog is rendered
+  setTimeout(() => {
+    // Suit selection
+    document.querySelectorAll('#suit-group .fu-suit-selector').forEach(option => {
+      option.addEventListener('click', () => {
+        // Remove active class from all options
+        document.querySelectorAll('#suit-group .fu-suit-selector').forEach(opt => {
+          opt.classList.remove('active');
+        });
+        
+        // Add active class to clicked option
+        option.classList.add('active');
+        
+        // Update hidden input
+        document.getElementById('selected-suit').value = option.dataset.value;
+      });
+    });
+    
+    // Value selection
+    document.querySelectorAll('#value-group .fu-value-selector').forEach(option => {
+      option.addEventListener('click', () => {
+        // Remove active class from all options
+        document.querySelectorAll('#value-group .fu-value-selector').forEach(opt => {
+          opt.classList.remove('active');
+        });
+        
+        // Add active class to clicked option
+        option.classList.add('active');
+        
+        // Update hidden input
+        document.getElementById('selected-value').value = option.dataset.value;
+      });
+    });
+  }, 50);
+</script>

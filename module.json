@@ -2,7 +2,7 @@
   "id": "fu-ace-cards",
   "title": "Fabula Ultima: Ace of Cards",
   "description": "Draw, hand, table areas for Fabula Ultima Ace of Cards class with visual enhancements for set detection.",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "license": "MIT",
   "compatibility": {
     "minimum": "12",
@@ -15,15 +15,23 @@
     }
   ],
   "esmodules": [
-  "scripts/main.js",
-  "scripts/deck-manager.js",
-  "scripts/settings.js",
-  "scripts/set-detector.js",
-  "scripts/ui-enhancements.js",
-  "scripts/damage-integration.js"
+    "scripts/main.js",
+    "scripts/settings.js",
+    "scripts/hooks-manager.js",
+    "scripts/pile-manager.js",
+    "scripts/deck-manager.js",
+    "scripts/dialog-manager.js",
+    "scripts/ui-manager.js",
+    "scripts/card-controller.js",
+    "scripts/socket-manager.js",
+    "scripts/event-handlers.js",
+    "scripts/set-detector.js",
+    "scripts/ui-enhancements.js",
+    "scripts/damage-integration.js"
   ],
   "styles": [
-    "styles/fu-style.css"
+    "styles/fu-style.css",
+    "styles/dialog-styles.css"
   ],
   "packs": [
     {

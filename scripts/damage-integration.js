@@ -1,5 +1,36 @@
 // scripts/damage-integration.js
 // Integration with Fabula Ultima damage system
+import { MODULE_ID } from './settings.js';
+import { SocketManager } from './socket-manager.js';
+
+// Define InlineSourceInfo directly in damage-integration.js
+class InlineSourceInfo {
+  constructor(name, actorUuid, itemUuid) {
+    this.name = name || "Card Effect";
+    this.actorUuid = actorUuid;
+    this.itemUuid = itemUuid;
+  }
+
+  resolveItem() {
+    if (!this.itemUuid) return null;
+    try {
+      return fromUuidSync(this.itemUuid);
+    } catch (error) {
+      console.error("Error resolving item:", error);
+      return null;
+    }
+  }
+
+  resolveActor() {
+    if (!this.actorUuid) return null;
+    try {
+      return fromUuidSync(this.actorUuid);
+    } catch (error) {
+      console.error("Error resolving actor:", error);
+      return null;
+    }
+  }
+}
 
 export class DamageIntegration {
     
@@ -18,10 +49,38 @@ export class DamageIntegration {
             return { applied: false };
         }
         
-        // Try to use system integration if available (without showing errors if not found)
+        // Try to use system integration if available
         if (game.projectfu && typeof game.projectfu.applyDamage === 'function') {
             try {
-                await game.projectfu.applyDamage(damageType, damageValue, sourceActor, targets, traits);
+                // Create a valid source object for the system
+                let source = null;
+                
+                if (sourceActor) {
+                    // Create a source object the system can use
+                    source = {
+                        name: sourceActor.name || "Card Effect",
+                        actor: sourceActor, 
+                        uuid: sourceActor.uuid || null,
+                        img: sourceActor.img || "icons/svg/sword.svg",
+                        // Add these methods the pipeline needs
+                        resolveItem() { return null; },
+                        resolveActor() { return sourceActor || null; }
+                    };
+                } else {
+                    // Create a fallback source
+                    source = {
+                        name: "Card Effect",
+                        actor: null,
+                        uuid: null,
+                        img: "icons/svg/card-joker.svg",
+                        // Add these methods the pipeline needs
+                        resolveItem() { return null; },
+                        resolveActor() { return null; }
+                    };
+                }
+                
+                // Call the system function with our valid source
+                await game.projectfu.applyDamage(damageType, damageValue, source, targets, traits);
                 return { applied: true };
             } catch (systemError) {
                 console.log("System damage function failed, falling back to manual method:", systemError);
@@ -29,7 +88,7 @@ export class DamageIntegration {
             }
         }
         
-        // Use our manual implementation
+        // Use our manual implementation as fallback
         const results = await DamageIntegration.applyManualDamage(damageType, damageValue, sourceActor, targets, traits);
         
         // Create a chat message showing the damage results
@@ -78,7 +137,7 @@ export class DamageIntegration {
         const ignoreResistances = traits.includes('ignoreResistances');
         const ignoreImmunities = traits.includes('ignoreImmunities');
         
-        // Define the affinity values based on your observation
+        // Define affinity values
         const AFFINITY = {
             NORMAL: 0,        // Normal damage
             RESISTANCE: 1,    // Resistance (half damage)
@@ -88,104 +147,122 @@ export class DamageIntegration {
         };
         
         for (const target of targets) {
+            // Check if player has permission to update this target
+            const hasPermission = target.isOwner;
+            
             // Default values
             let multiplier = 1;
             let affinityMessage = "Normal";
-            let affinityValue = 0; // Default: no special affinity
+            let affinityValue = 0;
             
             // Check for affinities
             if (target.system && target.system.affinities && target.system.affinities[damageType]) {
-                // Get the affinity value
                 affinityValue = target.system.affinities[damageType].current;
-                
-                // Log the raw affinity value for debugging
-                console.log(`${target.name} affinity for ${damageType}: ${affinityValue}`);
             }
             
-            // Apply the correct multiplier based on affinity value
+            // Apply multiplier based on affinity
             switch (affinityValue) {
-                case AFFINITY.VULNERABLE:
-                    multiplier = 2; // Double damage
-                    affinityMessage = "Vulnerable";
+                case AFFINITY.VULNERABLE: 
+                    multiplier = 2; 
+                    affinityMessage = "Vulnerable"; 
                     break;
-                    
                 case AFFINITY.RESISTANCE:
                     if (ignoreResistances) {
-                        multiplier = 1; // Normal damage
+                        multiplier = 1;
                         affinityMessage = "Resistance ignored";
                     } else {
-                        multiplier = 0.5; // Half damage
+                        multiplier = 0.5;
                         affinityMessage = "Resistant";
                     }
                     break;
-                    
                 case AFFINITY.IMMUNITY:
                     if (ignoreImmunities) {
-                        multiplier = 1; // Normal damage
+                        multiplier = 1;
                         affinityMessage = "Immunity ignored";
                     } else {
-                        multiplier = 0; // No damage
+                        multiplier = 0;
                         affinityMessage = "Immune";
                     }
                     break;
-                    
                 case AFFINITY.ABSORPTION:
                     if (ignoreImmunities) {
-                        multiplier = 1; // Normal damage
+                        multiplier = 1;
                         affinityMessage = "Absorption ignored";
                     } else {
-                        multiplier = -1; // Healing
+                        multiplier = -1;
+                        multiplier = -1;
                         affinityMessage = "Absorbed";
                     }
                     break;
-                    
                 default:
-                    // AFFINITY.NORMAL or any other value
                     multiplier = 1;
                     affinityMessage = "Normal";
             }
             
             // Calculate final damage
             const finalDamage = Math.floor(damageValue * multiplier);
-            console.log(`Calculated damage for ${target.name}: ${finalDamage} (${affinityMessage})`);
             
             // Apply the damage to the actor
             if (finalDamage !== 0) {
                 const hpValue = target.system.resources.hp.value;
                 const hpMax = target.system.resources.hp.max;
                 
-                if (finalDamage < 0) {
-                    // Healing (absorption)
-                    await target.update({
-                        "system.resources.hp.value": Math.min(hpValue - finalDamage, hpMax)
-                    });
+                if (hasPermission) {
+                    // Player can update directly
+                    if (finalDamage < 0) {
+                        // Healing (absorption)
+                        await target.update({
+                            "system.resources.hp.value": Math.min(hpValue - finalDamage, hpMax)
+                        });
+                        
+                        // Show floating text for healing
+                        this.showFloatingText(target, `+${Math.abs(finalDamage)}`, "green");
+                    } else {
+                        // Damage
+                        await target.update({
+                            "system.resources.hp.value": Math.max(hpValue - finalDamage, 0)
+                        });
+                        
+                        // Show floating text for damage
+                        this.showFloatingText(target, `-${finalDamage}`, "red");
+                    }
+                } else if (!game.user.isGM) {
+                    // Player doesn't have permission and is not GM, use socket
+                    // Find token for actor
+                    const token = canvas.tokens.placeables.find(t => t.actor && t.actor.id === target.id);
                     
-                    // Show floating text for healing
-                    DamageIntegration.showFloatingText(
-                        target, 
-                        `+${Math.abs(finalDamage)}`, 
-                        "green"
+                    // Send socket message to GM
+                    SocketManager.emitApplyDamage(
+                        token ? token.id : target.id,
+                        finalDamage,
+                        damageType,
+                        sourceActor?.id || null,
+                        affinityMessage
+                    );
+                    
+                    // Show visual feedback that request was sent
+                    this.showFloatingText(
+                        target,
+                        finalDamage < 0 ? `+${Math.abs(finalDamage)}*` : `-${finalDamage}*`,
+                        finalDamage < 0 ? "green" : "red"
                     );
                 } else {
-                    // Damage
-                    await target.update({
-                        "system.resources.hp.value": Math.max(hpValue - finalDamage, 0)
-                    });
-                    
-                    // Show floating text for damage
-                    DamageIntegration.showFloatingText(
-                        target, 
-                        `-${finalDamage}`, 
-                        "red"
-                    );
+                    // GM applying damage directly
+                    if (finalDamage < 0) {
+                        await target.update({
+                            "system.resources.hp.value": Math.min(hpValue - finalDamage, hpMax)
+                        });
+                        this.showFloatingText(target, `+${Math.abs(finalDamage)}`, "green");
+                    } else {
+                        await target.update({
+                            "system.resources.hp.value": Math.max(hpValue - finalDamage, 0)
+                        });
+                        this.showFloatingText(target, `-${finalDamage}`, "red");
+                    }
                 }
             } else {
                 // No damage due to immunity
-                DamageIntegration.showFloatingText(
-                    target,
-                    "Immune",
-                    "yellow"
-                );
+                this.showFloatingText(target, "Immune", "yellow");
             }
             
             // Add to results
@@ -193,7 +270,8 @@ export class DamageIntegration {
                 actor: target,
                 originalDamage: damageValue,
                 finalDamage: finalDamage,
-                affinity: affinityMessage
+                affinity: affinityMessage,
+                viaSocket: !hasPermission && !game.user.isGM
             });
         }
         
@@ -247,6 +325,9 @@ export class DamageIntegration {
             traits.push('ignoreResistances');
             traits.push('ignoreImmunities');
         }
+        
+        // Create a proper source object with null checks
+        const sourceId = sourceActor ? sourceActor.uuid || null : null;
         
         // Apply the damage
         const result = await this.applyDamage(
