@@ -3,6 +3,7 @@ import { MODULE_ID } from './settings.js';
 import { UIManager } from './ui-manager.js';
 import { CardController } from './card-controller.js';
 import { PileManager } from './pile-manager.js';
+import { getTablePile, getCurrentPlayerPiles } from './pile-manager.js'; // Add getTablePile here
 import { SET_NAMES } from './set-detector.js';
 import { hideSetTooltip, clearHighlights } from './ui-enhancements.js';
 
@@ -421,7 +422,7 @@ export class EventHandlers {
     // Define the mapping for damage types to icon classes
     const damageTypeToIconClass = {
       'fire': 'fu-fire',
-      'air': 'fu-wind',   // Special case: air damage uses fu-wind icon class
+      'air': 'fu-wind',
       'earth': 'fu-earth',
       'ice': 'fu-ice',
       'light': 'fu-light',
@@ -438,9 +439,7 @@ export class EventHandlers {
       'clubs': 'earth',
       'club': 'earth',
       'spades': 'ice',
-      'spade': 'ice',
-      // Add a default for joker
-      'joker': 'physical' 
+      'spade': 'ice'
     };
     
     // Define display names for damage types
@@ -459,14 +458,18 @@ export class EventHandlers {
       const cardElement = $(this);
       let cardSuit = cardElement.data('card-suit');
       
-      // If suit data not directly available, try to extract from the card name
-      if (!cardSuit) {
+      // Check if there's a phantom suit for jokers
+      const phantomSuit = cardElement.data('phantom-suit');
+      if (phantomSuit) {
+        cardSuit = phantomSuit;
+      } else if (!cardSuit) {
+        // If no suit data directly available, try to extract from the name
         const cardName = cardElement.attr('title') || '';
-        // Extract suit from name (hearts, diamonds, clubs, spades)
         const suitMatch = cardName.toLowerCase().match(/(heart|diamond|club|spade)s?/);
         cardSuit = suitMatch ? suitMatch[0] : '';
       }
       
+      // Determine the damage type from the suit
       const damageType = suitToDamageType[cardSuit.toLowerCase()] || 'physical';
       
       // Remove selected class from any previously selected card
@@ -481,7 +484,7 @@ export class EventHandlers {
         // Update the damage text with the element type
         const damageText = weaponLabel.find('#weapon-damage-text');
         if (damageText.length) {
-          damageText.text(damageTypeDisplayNames[damageType]);
+          damageText.text(`${damageTypeDisplayNames[damageType]} Damage`);
         }
         
         // Remove existing damage type classes
@@ -495,7 +498,7 @@ export class EventHandlers {
         if (endcap.length) {
           const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
                                   damageType.charAt(0).toUpperCase() + damageType.slice(1);
-          endcap.attr('data-tooltip', damageTypeDisplay);
+          endcap.attr('data-tooltip', `${damageTypeDisplay} Damage`);
           
           // Use the correct icon class based on damage type
           const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;
@@ -508,8 +511,6 @@ export class EventHandlers {
           notesText.html(`Weapon attacks will deal <strong>${damageType}</strong> damage regardless of weapon type.`);
         }
       }
-      
-      console.log(`Selected ${cardSuit} card, damage type: ${damageType}`);
     });
   }
   

@@ -412,15 +412,7 @@ static async activateTableSet(setData, playerId) {
     // Emit socket message and update UI
     SocketManager.emitSetActivated(setData.type, setData.cardIds);
     UIManager.renderTable();
-    
-    // // Apply healing/status effects if applicable
-    // if (isHealingSet && character) {
-    //   // Pause briefly to let the chat message render
-    //   setTimeout(async () => {
-    //     await HealingIntegration.applySetEffect(setData, character, targets);
-    //   }, 1000);
-    // }
-    
+        
     return true;
   } catch (error) {
     console.error("Error activating set:", error);
@@ -450,12 +442,35 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
   const isMultiTarget = ['jackpot', 'magic-flush', 'blinding-flush', 'full-status', 'triple-support', 'forbidden-monarch'].includes(setData.type);
   
   // Get suit information for each card
-  const cardsWithSuits = setData.cards.map(card => ({
+  const cardsWithSuits = setData.cards.map(card => {
+    const isJoker = card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker');
+    let suit = this.getCardSuit(card);
+    
+    // For jokers, add phantom suit information
+    if (isJoker) {
+      const phantomSuit = card.getFlag(MODULE_ID, 'phantomSuit');
+      if (phantomSuit) {
+        // Use the phantom suit instead
+        suit = phantomSuit;
+      }
+      
+      return {
+        id: card.id,
+        name: card.name,
+        img: card.faces[card.face ?? 0]?.img,
+        suit: suit,
+        isJoker: true,
+        phantomSuit: phantomSuit
+      };
+    }
+    
+    return {
       id: card.id,
       name: card.name,
       img: card.faces[card.face ?? 0]?.img,
-      suit: this.getCardSuit(card) // Extract the suit properly
-  }));
+      suit: suit
+    };
+  });
 
   // Get available damage types (suits) for this set
   const availableSuits = [...new Set(cardsWithSuits.map(c => c.suit))];

@@ -35,6 +35,8 @@
               title="{{this.name}}"
               data-card-id="{{this.id}}"
               data-card-suit="{{this.suit}}"
+              {{#if this.isJoker}}data-is-joker="true"{{/if}}
+              {{#if this.phantomSuit}}data-phantom-suit="{{this.phantomSuit}}"{{/if}}
               data-card-index="{{@index}}">
           {{/each}}
         </div>
@@ -125,7 +127,7 @@
       <a>
         <label class="damageType physical grid grid-3col">
           <div class="startcap"></div>
-          <div id="weapon-damage-text">Weapon Damage</div>
+          <div id="weapon-damage-text">Damage</div>
           <div class="endcap" data-tooltip="Select a card to set damage type">
             <i class="fua fu-physical"></i>
           </div>
