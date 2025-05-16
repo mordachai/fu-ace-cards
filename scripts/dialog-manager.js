@@ -102,7 +102,8 @@ export class DialogManager {
         // In case dialog is closed without button press
         refreshHandDisplay();
       },
-      width: 300
+      width: 300,
+      classes: ["projectfu"]
     }).render(true);
   }
 }
