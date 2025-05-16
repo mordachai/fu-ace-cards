@@ -73,6 +73,23 @@ export class EventHandlers {
       btnReset.addEventListener('click', resetHand);
       btnReset._cleanup = () => btnReset.removeEventListener('click', resetHand);
     }
+
+    // Button handler: Mulligan
+    const btnMulligan = document.getElementById('fu-mulligan');
+    if (btnMulligan) {
+      const performMulligan = async () => {
+        if (game.user.getFlag(MODULE_ID, 'mulliganActive')) {
+          // Cancel Mulligan if already active
+          await UIManager.endMulligan();
+        } else {
+          // Start Mulligan
+          await UIManager.startMulligan();
+        }
+      };
+      btnMulligan.addEventListener('click', performMulligan);
+      btnMulligan._cleanup = () => btnMulligan.removeEventListener('click', performMulligan);
+    }
+    
   }
   
   // Setup handlers for tooltips

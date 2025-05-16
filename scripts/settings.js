@@ -9,6 +9,7 @@ export const SETTINGS_KEYS = {
   SHOW_SET_NAMES: 'showSetNames',
   SET_INFO_STYLE: 'setInfoStyle',
   SHOW_PARTIAL_SETS: 'showPartialSets',
+  ALLOW_CARD_DISCARD: 'allowCardDiscard',
   
   // Color settings
   SET_COLORS: {
@@ -79,6 +80,15 @@ export function registerSettings() {
   game.settings.register(MODULE_ID, SETTINGS_KEYS.SHOW_PARTIAL_SETS, {
     name: 'Show Partial Sets',
     hint: 'Display indicators for incomplete sets (experimental)',
+    scope: 'world',
+    config: true,
+    type: Boolean,
+    default: false
+  });
+
+  game.settings.register(MODULE_ID, SETTINGS_KEYS.ALLOW_CARD_DISCARD, {
+    name: 'Allow Card Discard',
+    hint: 'Allow players to discard cards at any time (not rules-as-written)',
     scope: 'world',
     config: true,
     type: Boolean,
