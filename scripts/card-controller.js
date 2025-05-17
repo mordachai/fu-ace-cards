@@ -337,11 +337,12 @@ static async cleanTable() {
   UIManager.renderTable();
   SocketManager.emitCleanTable();
 
-    // Verify handlers are still attached
   if (window.FuAceCards?.EventHandlers) {
-    window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+    window.FuAceCards.EventHandlers.cleanupHandDrawer();
+    window.FuAceCards.EventHandlers.setupHandDrawer();
   } else if (typeof EventHandlers !== 'undefined') {
-    EventHandlers.verifyHandDrawerHandlers();
+    EventHandlers.cleanupHandDrawer();
+    EventHandlers.setupHandDrawer();
   }
   
   console.log(`${MODULE_ID} | Table cleaned successfully`);

@@ -29,35 +29,6 @@ export class EventHandlers {
   
   // Setup handlers for UI buttons
   static setupButtonHandlers() {
-    // Button handler: Clean Table
-    const btnClean = document.getElementById('fu-clean-table');
-    if (btnClean) {
-      // Remove any existing event listeners first
-      const oldClean = btnClean._cleanupFunction;
-      if (oldClean) {
-        btnClean.removeEventListener('click', oldClean);
-      }
-      
-      // Define the function so we can properly remove it later
-      const cleanTableHandler = () => {
-        console.log(`${MODULE_ID} | Clean Table button clicked`);
-        if (typeof CardController.cleanTable === "function") {
-          CardController.cleanTable();
-        } else if (window.FuAceCards && typeof window.FuAceCards.CardController?.cleanTable === "function") {
-          window.FuAceCards.CardController.cleanTable();
-        } else {
-          console.error(`${MODULE_ID} | cleanTable function not found`);
-        }
-      };
-      
-      // Store the function for cleanup
-      btnClean._cleanupFunction = cleanTableHandler;
-      
-      // Add the event listener
-      btnClean.addEventListener('click', cleanTableHandler);
-    } else {
-      console.warn(`${MODULE_ID} | Clean Table button not found in DOM`);
-    }
     
     // Button handler: Draw Card
     const btnDraw = document.getElementById('fu-draw-card');
@@ -102,11 +73,10 @@ export class EventHandlers {
 
   // Add to event-handlers.js
   static async manualReset() {
-    // Create a confirmation dialog
+    // Create a confirmation dialog with updated description
     const confirm = await Dialog.confirm({
-      title: "Confirm Manual Reset",
-      content: `<p>This will reset your hand and the table. Use only if cards are stuck or duplicated.</p>
-                <p><strong>Warning:</strong> This discards your current hand!</p>`,
+      title: "Clean Table",
+      content: `<p>This will clear all cards from the table. Player hands will remain unchanged.</p>`,
       yes: () => true,
       no: () => false,
       defaultYes: false
@@ -114,41 +84,18 @@ export class EventHandlers {
     
     if (!confirm) return;
     
-    ui.notifications.info("Resetting card areas...");
+    ui.notifications.info("Cleaning table area...");
     
-    // Clean table first
+    // Only clean the table
     await CardController.cleanTable();
-    
-    // Get player piles
-    const piles = getCurrentPlayerPiles();
-    if (!piles) {
-      ui.notifications.warn("No card piles found for your character");
-      return;
-    }
-    
-    // Reset the hand to discard
-    if (piles.hand && piles.hand.cards.size > 0) {
-      try {
-        const handCardIds = Array.from(piles.hand.cards).map(c => c.id);
-        await piles.hand.pass(piles.discard, handCardIds, { chatNotification: false });
-      } catch (error) {
-        console.error("Error resetting hand:", error);
-      }
-    }
-    
-    // Draw fresh hand
-    if (piles.deck && piles.hand) {
-      await piles.deck.deal([piles.hand], 5, { how: CONST.CARD_DRAW_MODES.RANDOM, chatNotification: false });
-    }
     
     // Render UI
     UIManager.renderTable();
-    UIManager.renderHand();
     
     // Verify handlers
     this.verifyHandDrawerHandlers();
     
-    ui.notifications.info("Card areas have been reset");
+    ui.notifications.info("Table area has been cleaned");
   }
   
   // Setup handlers for tooltips
