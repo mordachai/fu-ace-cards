@@ -1,5 +1,6 @@
-2025/05/16-20:02:54.183 9034 Recovering log #38
-2025/05/16-20:02:54.183 9034 Level-0 table #40: started
-2025/05/16-20:02:54.186 9034 Level-0 table #40: 19684 bytes OK
-2025/05/16-20:02:54.189 9034 Delete type=0 #38
-2025/05/16-20:02:54.189 9034 Delete type=3 #37
+2025/05/17-12:39:03.346 3374 Log #43: 0 ops saved to Table #44 OK
+2025/05/17-12:39:03.346 3374 Archiving C:\Users\Gus\AppData\Local\FoundryVTT\Data\modules\fu-ace-cards\packs\ace-of-card-decks/000043.log: OK
+2025/05/17-12:39:03.346 3374 Table #34: 31 entries OK
+2025/05/17-12:39:03.347 3374 Table #40: 128 entries OK
+2025/05/17-12:39:03.348 3374 Archiving C:\Users\Gus\AppData\Local\FoundryVTT\Data\modules\fu-ace-cards\packs\ace-of-card-decks/MANIFEST-000042: OK
+2025/05/17-12:39:03.349 3374 **** Repaired leveldb C:\Users\Gus\AppData\Local\FoundryVTT\Data\modules\fu-ace-cards\packs\ace-of-card-decks; recovered 2 files; 25422 bytes. Some data may have been lost. ****
