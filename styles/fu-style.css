@@ -572,32 +572,35 @@
   margin-bottom: 5px;
 }
 
-/* Add to styles/fu-style.css */
-.fu-toggle-button {
+/*Toggle button for table attached to sidebar*/
+
+#fu-table-toggle {
   position: fixed;
-  right: 10px;
-  top: 10px;
-  background: rgba(0, 0, 0, 0.6);
-  border: 1px solid #555;
-  border-radius: 4px;
-  width: 30px;
-  height: 30px;
+  z-index: 70;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid #555;
+  border-radius: 4px;
   cursor: pointer;
-  z-index: 2001;
+  color: #ccc;
+  
+  /* Default position when sidebar is expanded */
+  right: 310px;
+  top: 50px;
 }
 
-.fu-toggle-button.hidden i {
-  opacity: 0.5;
+/* Special position only when sidebar is collapsed */
+#sidebar.collapsed ~ #fu-table-toggle {
+  right: 37px; /* 32px + 5px */
+  top: auto; /* Override the top property */
+  bottom: 10px; /* Position at bottom when collapsed */
 }
 
-.fu-toggle-button:hover {
-  background: rgba(0, 0, 0, 0.8);
-}
-
-.fu-card-count {
+#fu-table-toggle .fu-card-count {
   position: absolute;
   top: -5px;
   right: -5px;

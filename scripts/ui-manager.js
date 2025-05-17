@@ -22,7 +22,7 @@ export class UIManager {
 
       if (toggleButton) {
         toggleButton.classList.toggle('hidden', isHidden);
-        toggleButton.querySelector('i').className = isHidden ? 'fas fa-eye-slash' : 'fas fa-eye';
+        toggleButton.querySelector('i').className = isHidden ? 'fa-solid fa-cards' : 'fa-regular fa-cards';
         
         // Update card count indicator
         const countSpan = toggleButton.querySelector('.fu-card-count');
