@@ -37,15 +37,7 @@ export class EventHandlers {
       btnDraw.addEventListener('click', drawCard);
       btnDraw._drawCard = drawCard; // Store reference
       btnDraw._cleanup = () => btnDraw.removeEventListener('click', drawCard);
-    }
-    
-    // Button handler: Reset Hand
-    const btnReset = document.getElementById('fu-reset-hand');
-    if (btnReset) {
-      const resetHand = () => CardController.resetHand();
-      btnReset.addEventListener('click', resetHand);
-      btnReset._cleanup = () => btnReset.removeEventListener('click', resetHand);
-    }
+    }  
 
     // Button handler: Mulligan
     const btnMulligan = document.getElementById('fu-mulligan');
@@ -891,12 +883,10 @@ export class EventHandlers {
   static cleanup() {
     const btnClean = document.getElementById('fu-clean-table');
     const btnDraw = document.getElementById('fu-draw-card');
-    const btnReset = document.getElementById('fu-reset-hand');
     const handArea = document.getElementById('fu-hand-area');
     
     btnClean?._cleanup?.();
     btnDraw?._cleanup?.();
-    btnReset?._cleanup?.();
     handArea?._cleanupDrawer?.();
     
     // Remove document event listeners

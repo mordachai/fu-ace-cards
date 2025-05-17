@@ -377,35 +377,6 @@ static async cleanTable() {
   return true;
 }
   
-// Reset hand
-static async resetHand() {
-  const piles = getCurrentPlayerPiles();
-  if (!piles?.hand) {
-    return false;
-  }
-  
-  const ids = piles.hand.cards.map(c => c.id);
-  if (!ids.length) {
-    return false;
-  }
-  
-  await piles.hand.pass(piles.discard, ids, { chatNotification: false });
-  
-  // Clean up tooltips when hand is reset
-  UIManager.cleanupAllTooltips();
-  
-  UIManager.renderHand();
-  
-  // Verify handlers are still attached
-  if (window.FuAceCards?.EventHandlers) {
-    window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
-  } else if (typeof EventHandlers !== 'undefined') {
-    EventHandlers.verifyHandDrawerHandlers();
-  }
-  
-  return true;
-}
-  
 // Activate a set on the table
 static async activateTableSet(setData, playerId) {
   // Only the owner can activate their sets
@@ -504,7 +475,6 @@ static async activateTableSet(setData, playerId) {
     return false;
   }
 }
-
 
 static async createSetActivationMessage(setData, playerId, mpCost) {
   // Get description data
