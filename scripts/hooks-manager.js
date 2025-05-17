@@ -67,6 +67,9 @@ export class HooksManager {
   // Handler for ready hook - MODIFIED
   static async onReady() {
     console.log(`${MODULE_ID} | Module ready`);
+
+    // Register UI hooks to maintain handlers
+    this.registerUIHooks();
     
     try {
       // Initialize managers
@@ -150,6 +153,30 @@ export class HooksManager {
     
     return true;
   }
+
+  static registerUIHooks() {
+  // Key UI events that might affect our elements
+  Hooks.on('renderSidebarTab', () => this.ensureHandlersAttached());
+  Hooks.on('renderChatMessage', () => this.ensureHandlersAttached());
+  Hooks.on('renderApplication', () => this.ensureHandlersAttached());
+  Hooks.on('renderDialog', () => this.ensureHandlersAttached());
+  
+  // Critical Foundry events
+  Hooks.on('updateJournalEntry', () => this.ensureHandlersAttached());
+  Hooks.on('ready', () => this.ensureHandlersAttached());
+  Hooks.on('canvasReady', () => this.ensureHandlersAttached());
+  
+  console.log(`${MODULE_ID} | UI hooks registered for handler preservation`);
+  }
+
+static ensureHandlersAttached() {
+  // Only verify if module is initialized
+  if (window.FuAceCards?.EventHandlers) {
+    window.FuAceCards.EventHandlers.verifyAllHandlers();
+  } else if (typeof EventHandlers !== 'undefined') {
+    EventHandlers.verifyAllHandlers();
+  }
+}
   
   // Handler for updateCards hook - MODIFIED
   static onUpdateCards(cards, change, options, userId) {

@@ -157,17 +157,25 @@ static async playCardToTable(card) {
   }
   
   try {
+    // Before passing the card, try to find its original in deck and mark as drawn
+    if (piles.deck) {
+      const deckCards = Array.from(piles.deck.cards);
+      // Find all cards with the same name as the one we're playing
+      const sameNameCards = deckCards.filter(c => 
+        c.name === card.name && 
+        c.suit === card.suit && 
+        c.value === card.value && 
+        !c.drawn
+      );
+      
+      if (sameNameCards.length > 0) {
+        // Mark the first one as drawn
+        await sameNameCards[0].update({drawn: true});
+      }
+    }
+
+    // Now pass the card to the table
     await piles.hand.pass(tablePile, [card.id], { chatNotification: false });
-    
-    // Double-check the card moved correctly
-    if (piles.hand.cards.has(card.id)) {
-      console.warn(`${MODULE_ID} | Card remained in hand after pass operation`);
-    }
-    
-    if (!tablePile.cards.has(card.id)) {
-      console.warn(`${MODULE_ID} | Card didn't arrive on table after pass operation`);
-      return false;
-    }
     
     // Set owner flag on the card AFTER successful pass
     const tableCard = tablePile.cards.get(card.id);

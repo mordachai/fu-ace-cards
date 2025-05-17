@@ -29,45 +29,90 @@ export class EventHandlers {
   
   // Setup handlers for UI buttons
   static setupButtonHandlers() {
-    
     // Button handler: Draw Card
     const btnDraw = document.getElementById('fu-draw-card');
     if (btnDraw) {
+      // Clean up existing handler if present
+      if (btnDraw._drawCard) {
+        btnDraw.removeEventListener('click', btnDraw._drawCard);
+      }
+      
       const drawCard = () => CardController.drawCard();
       btnDraw.addEventListener('click', drawCard);
-      btnDraw._drawCard = drawCard; // Store reference
-      btnDraw._cleanup = () => btnDraw.removeEventListener('click', drawCard);
-    }  
+      btnDraw._drawCard = drawCard;
+      btnDraw._hasEventHandlers = true;
+      
+      btnDraw._cleanup = () => {
+        btnDraw.removeEventListener('click', drawCard);
+        btnDraw._hasEventHandlers = false;
+      };
+    }
 
     // Button handler: Mulligan
     const btnMulligan = document.getElementById('fu-mulligan');
-      if (btnMulligan) {
-        const performMulligan = async () => {
-          // Get current state with explicit boolean conversion
-          const isActive = !!game.user.getFlag(MODULE_ID, 'mulliganActive');
-          console.log(`${MODULE_ID} | Mulligan button clicked. Current state:`, isActive);
-          
-          if (isActive) {
-            // Cancel Mulligan if already active
-            console.log(`${MODULE_ID} | Ending Mulligan mode`);
-            await UIManager.endMulligan();
-          } else {
-            // Start Mulligan
-            console.log(`${MODULE_ID} | Starting Mulligan mode`);
-            await UIManager.startMulligan();
-          }
-        };
-        btnMulligan.addEventListener('click', performMulligan);
-        btnMulligan._cleanup = () => btnMulligan.removeEventListener('click', performMulligan);
+    if (btnMulligan) {
+      // Clean up existing handler if present
+      if (btnMulligan._performMulligan) {
+        btnMulligan.removeEventListener('click', btnMulligan._performMulligan);
       }
+      
+      const performMulligan = async () => {
+        // Get current state with explicit boolean conversion
+        const isActive = !!game.user.getFlag(MODULE_ID, 'mulliganActive');
+        console.log(`${MODULE_ID} | Mulligan button clicked. Current state:`, isActive);
+        
+        if (isActive) {
+          // Cancel Mulligan if already active
+          console.log(`${MODULE_ID} | Ending Mulligan mode`);
+          await UIManager.endMulligan();
+        } else {
+          // Start Mulligan
+          console.log(`${MODULE_ID} | Starting Mulligan mode`);
+          await UIManager.startMulligan();
+        }
+      };
+      
+      btnMulligan.addEventListener('click', performMulligan);
+      btnMulligan._performMulligan = performMulligan;
+      btnMulligan._hasEventHandlers = true;
+      
+      btnMulligan._cleanup = () => {
+        btnMulligan.removeEventListener('click', performMulligan);
+        btnMulligan._hasEventHandlers = false;
+      };
+    }
 
+    // Button handler: Manual Reset
     const btnManualReset = document.getElementById('fu-manual-reset');
     if (btnManualReset) {
+      // Clean up existing handler if present
+      if (btnManualReset._resetHandler) {
+        btnManualReset.removeEventListener('click', btnManualReset._resetHandler);
+      }
+      
       const resetHandler = () => this.manualReset();
       btnManualReset.addEventListener('click', resetHandler);
-      btnManualReset._cleanup = () => btnManualReset.removeEventListener('click', resetHandler);
+      btnManualReset._resetHandler = resetHandler;
+      btnManualReset._hasEventHandlers = true;
+      
+      btnManualReset._cleanup = () => {
+        btnManualReset.removeEventListener('click', resetHandler);
+        btnManualReset._hasEventHandlers = false;
+      };
     }
     
+    console.log(`${MODULE_ID} | Button handlers setup complete`);
+  }
+
+  // Add verification method
+  static verifyAllHandlers() {
+    // Check all button handlers
+    this.setupButtonHandlers();
+    
+    // Also verify hand drawer
+    this.verifyHandDrawerHandlers();
+    
+    return true;
   }
 
   // Add to event-handlers.js
