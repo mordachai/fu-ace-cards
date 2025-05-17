@@ -119,7 +119,12 @@ export class SocketManager {
     case 'returnCardToHand':
       console.log(`${MODULE_ID} | Processing returnCardToHand socket message`);
       this.handleCardReturnedToHand(msg);
-      break;    
+      break;
+      
+    case 'shuffleDeck':
+      console.log(`${MODULE_ID} | Processing shuffleDeck socket message`);
+      this.handleShuffleDeck(msg);
+      break;
       
     default:
       console.warn(`${MODULE_ID} | Unknown socket action:`, msg.action);
@@ -294,6 +299,20 @@ export class SocketManager {
           originalSenderId,
           senderId: game.userId
       });
+  }
+
+  static emitShuffleDeck() {
+  game.socket.emit(`module.${MODULE_ID}`, {
+    action: 'shuffleDeck',
+    playerId: game.userId
+  });
+  }
+
+  static handleShuffleDeck(msg) {
+    // Another player shuffled their deck, update our view
+    if (window.FuAceCards?.UIManager) {
+      window.FuAceCards.UIManager.renderTable();
+    }
   }
 
   // Handle healing request from player

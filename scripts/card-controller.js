@@ -358,9 +358,123 @@ static async playSetToTable(setData, indicator) {
     return false;
   }
 }
-  
-// Enhanced cleanTable method to handle true duplicate cards
 
+// Shuffle the deck - collect all cards and reset
+static async shuffleDeck() {
+  const piles = PileManager.getCurrentPlayerPiles();
+  const tablePile = PileManager.getTablePile();
+  
+  if (!piles?.deck || !piles?.hand || !piles?.discard) {
+    ui.notifications.error("Cannot shuffle: deck not configured correctly");
+    return false;
+  }
+  
+  try {
+    // First, get our player's cards from the table
+    const playerTableCards = [];
+    if (tablePile) {
+      const tableCards = Array.from(tablePile.cards);
+      playerTableCards.push(...tableCards.filter(card => 
+        card.getFlag(MODULE_ID, 'ownerId') === game.userId
+      ));
+    }
+    
+    // Diagnostic logging
+    console.log(`${MODULE_ID} | Shuffling deck:`);
+    console.log(`- Player has ${playerTableCards.length} cards on the table`);
+    console.log(`- ${piles.hand.cards.size} cards in hand`);
+    console.log(`- ${piles.discard.cards.size} cards in discard`);
+    console.log(`- ${piles.deck.cards.size} cards in deck`);
+    
+    // Step 1: Get cards from table safely
+    if (playerTableCards.length > 0) {
+      // Safety check - see if any cards exist in multiple places
+      for (const card of playerTableCards) {
+        // Check if this card is already in discard or deck
+        const inDiscard = piles.discard.cards.has(card.id);
+        const inDeck = piles.deck.cards.has(card.id);
+        
+        if (inDiscard || inDeck) {
+          // If duplicate, delete from table
+          console.log(`${MODULE_ID} | Card ${card.id} exists in multiple piles, removing from table`);
+          await card.delete();
+        } else {
+          // Move card from table to discard
+          try {
+            await tablePile.pass(piles.discard, [card.id], { chatNotification: false });
+          } catch (error) {
+            console.error(`${MODULE_ID} | Error moving card ${card.id} from table:`, error);
+            // Try to delete it if movement fails
+            await card.delete();
+          }
+        }
+      }
+    }
+    
+    // Step 2: Get cards from hand safely
+    if (piles.hand.cards.size > 0) {
+      const handCards = Array.from(piles.hand.cards);
+      
+      for (const card of handCards) {
+        // Check if this card is already in discard or deck
+        const inDiscard = piles.discard.cards.has(card.id);
+        const inDeck = piles.deck.cards.has(card.id);
+        
+        if (inDiscard || inDeck) {
+          // If duplicate, delete from hand
+          console.log(`${MODULE_ID} | Card ${card.id} exists in multiple piles, removing from hand`);
+          await card.delete();
+        } else {
+          // Move card from hand to discard
+          try {
+            await piles.hand.pass(piles.discard, [card.id], { chatNotification: false });
+          } catch (error) {
+            console.error(`${MODULE_ID} | Error moving card ${card.id} from hand:`, error);
+            // Try to delete it if movement fails
+            await card.delete();
+          }
+        }
+      }
+    }
+    
+    // Step 3: Reset drawn status for all cards in deck
+    const deckCards = Array.from(piles.deck.cards);
+    if (deckCards.length > 0) {
+      const updates = deckCards.map(card => ({
+        _id: card.id,
+        drawn: false  // Ensure all cards can be drawn
+      }));
+      
+      await piles.deck.updateEmbeddedDocuments("Card", updates);
+    }
+    
+    // Step 4: Return all cards from discard to deck
+    // If there are cards in discard, pass them back to deck
+    if (piles.discard.cards.size > 0) {
+      const discardCardIds = Array.from(piles.discard.cards).map(c => c.id);
+      await piles.discard.pass(piles.deck, discardCardIds, { chatNotification: false });
+    }
+    
+    // Step 5: Shuffle the deck
+    await piles.deck.shuffle();
+        
+    // Emit socket message to update other players' views
+    SocketManager.emitShuffleDeck();
+    
+    // Update UI
+    UIManager.renderHand();
+    UIManager.renderTable();
+    
+    ui.notifications.info("Deck shuffled successfully");
+    return true;
+  } catch (error) {
+    console.error(`${MODULE_ID} | Error shuffling deck:`, error);
+    ui.notifications.error(`Failed to shuffle deck: ${error.message}`);
+    return false;
+  }
+}
+
+// Clean the table pile by moving cards back to their owners' discard piles
 static async cleanTable() {
   const tablePile = getTablePile();
   if (!tablePile) {
@@ -512,21 +626,44 @@ static async activateTableSet(setData, playerId) {
       }
     }
     
-    // FIXED APPROACH - Check for duplicate cards
-    const cardsToMove = [];
-    const discardCards = new Set(piles.discard.cards.map(c => c.id));
+    // IMPROVED APPROACH - Move cards more safely and add debugging
+    console.log(`${MODULE_ID} | Activating set ${setData.type} with cards:`, setData.cardIds);
     
+    // Process cards individually for better error handling
+    let movedCount = 0;
     for (const cardId of setData.cardIds) {
-      // Only move the card if it exists in table pile AND isn't already in discard
-      if (tablePile.cards.has(cardId) && !discardCards.has(cardId)) {
-        cardsToMove.push(cardId);
+      // Make sure the card is still on the table
+      if (!tablePile.cards.has(cardId)) {
+        console.warn(`${MODULE_ID} | Card ${cardId} not found on table, skipping`);
+        continue;
+      }
+      
+      // Check if card is already in discard (should never happen)
+      if (piles.discard.cards.has(cardId)) {
+        console.warn(`${MODULE_ID} | Card ${cardId} already in discard pile, skipping`);
+        continue;
+      }
+      
+      try {
+        // Move this card from table to discard
+        await tablePile.pass(piles.discard, [cardId], { chatNotification: false });
+        movedCount++;
+      } catch (error) {
+        console.error(`${MODULE_ID} | Error moving card ${cardId} from table to discard:`, error);
+        // Try one more approach - delete from table if pass fails
+        try {
+          const card = tablePile.cards.get(cardId);
+          if (card) {
+            await card.delete();
+            console.log(`${MODULE_ID} | Deleted card ${cardId} from table as fallback`);
+          }
+        } catch (innerError) {
+          console.error(`${MODULE_ID} | Failed to delete card ${cardId}:`, innerError);
+        }
       }
     }
     
-    // Only try to pass cards that exist in the table pile and aren't in discard
-    if (cardsToMove.length > 0) {
-      await tablePile.pass(piles.discard, cardsToMove, { chatNotification: false });
-    }
+    console.log(`${MODULE_ID} | Moved ${movedCount}/${setData.cardIds.length} cards to discard pile`);
     
     // Emit socket message and update UI
     SocketManager.emitSetActivated(setData.type, setData.cardIds);
