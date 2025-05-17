@@ -82,6 +82,23 @@ export class EventHandlers {
       };
     }
 
+    const tableToggle = document.getElementById('fu-table-toggle');
+      if (tableToggle) {
+        // Clean up existing handler if present
+        if (tableToggle._toggleHandler) {
+          tableToggle.removeEventListener('click', tableToggle._toggleHandler);
+        }
+        
+        const toggleHandler = async () => {
+          const currentSetting = game.settings.get(MODULE_ID, 'tableAreaHidden');
+          await game.settings.set(MODULE_ID, 'tableAreaHidden', !currentSetting);
+          UIManager.renderTable();
+        };
+        
+        tableToggle.addEventListener('click', toggleHandler);
+        tableToggle._toggleHandler = toggleHandler;
+    }
+
     // Button handler: Manual Reset
     const btnManualReset = document.getElementById('fu-manual-reset');
     if (btnManualReset) {
@@ -96,8 +113,8 @@ export class EventHandlers {
       btnManualReset._hasEventHandlers = true;
       
       btnManualReset._cleanup = () => {
-        btnManualReset.removeEventListener('click', resetHandler);
-        btnManualReset._hasEventHandlers = false;
+      btnManualReset.removeEventListener('click', resetHandler);
+      btnManualReset._hasEventHandlers = false;
       };
     }
     

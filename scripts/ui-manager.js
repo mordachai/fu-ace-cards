@@ -12,16 +12,33 @@ export class UIManager {
   static renderTable() {
       const tableArea = document.getElementById('fu-table-area');
       const tablePile = getTablePile();
+      const toggleButton = document.getElementById('fu-table-toggle');
       
       if (!tablePile) return;
       
       const cards = tablePile.cards;
+      const isHidden = game.settings.get(MODULE_ID, 'tableAreaHidden');
+      const cardCount = cards.size;
 
-      // Hide the entire table area if empty
-      if (cards.size === 0) {
+      if (toggleButton) {
+        toggleButton.classList.toggle('hidden', isHidden);
+        toggleButton.querySelector('i').className = isHidden ? 'fas fa-eye-slash' : 'fas fa-eye';
+        
+        // Update card count indicator
+        const countSpan = toggleButton.querySelector('.fu-card-count');
+        if (cardCount > 0) {
+          countSpan.textContent = cardCount;
+          countSpan.style.display = isHidden ? 'flex' : 'none';
+        } else {
+          countSpan.style.display = 'none';
+        }
+      }
+
+      // Hide the entire table area if empty or setting is hidden
+      if (cardCount === 0 || isHidden) {
         tableArea.style.display = 'none';
         return;
-      }    
+      }   
       
       // Otherwise make sure it's visible
       tableArea.style.display = 'flex';

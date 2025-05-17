@@ -94,4 +94,12 @@ export function registerSettings() {
     type: Boolean,
     default: false
   });
+
+  game.settings.register(MODULE_ID, 'tableAreaHidden', {
+    name: 'Keep Table Area Hidden',
+    scope: 'client',
+    config: false,
+    type: Boolean,
+    default: false
+  });
 }
