@@ -35,6 +35,7 @@ export class EventHandlers {
     if (btnDraw) {
       const drawCard = () => CardController.drawCard();
       btnDraw.addEventListener('click', drawCard);
+      btnDraw._drawCard = drawCard; // Store reference
       btnDraw._cleanup = () => btnDraw.removeEventListener('click', drawCard);
     }
     
@@ -48,19 +49,25 @@ export class EventHandlers {
 
     // Button handler: Mulligan
     const btnMulligan = document.getElementById('fu-mulligan');
-    if (btnMulligan) {
-      const performMulligan = async () => {
-        if (game.user.getFlag(MODULE_ID, 'mulliganActive')) {
-          // Cancel Mulligan if already active
-          await UIManager.endMulligan();
-        } else {
-          // Start Mulligan
-          await UIManager.startMulligan();
-        }
-      };
-      btnMulligan.addEventListener('click', performMulligan);
-      btnMulligan._cleanup = () => btnMulligan.removeEventListener('click', performMulligan);
-    }
+      if (btnMulligan) {
+        const performMulligan = async () => {
+          // Get current state with explicit boolean conversion
+          const isActive = !!game.user.getFlag(MODULE_ID, 'mulliganActive');
+          console.log(`${MODULE_ID} | Mulligan button clicked. Current state:`, isActive);
+          
+          if (isActive) {
+            // Cancel Mulligan if already active
+            console.log(`${MODULE_ID} | Ending Mulligan mode`);
+            await UIManager.endMulligan();
+          } else {
+            // Start Mulligan
+            console.log(`${MODULE_ID} | Starting Mulligan mode`);
+            await UIManager.startMulligan();
+          }
+        };
+        btnMulligan.addEventListener('click', performMulligan);
+        btnMulligan._cleanup = () => btnMulligan.removeEventListener('click', performMulligan);
+      }
 
     const btnManualReset = document.getElementById('fu-manual-reset');
     if (btnManualReset) {
@@ -92,8 +99,9 @@ export class EventHandlers {
     // Render UI
     UIManager.renderTable();
     
-    // Verify handlers
+    // Verify ALL handlers, not just hand drawer
     this.verifyHandDrawerHandlers();
+    this.setupButtonHandlers(); // Add this line to reattach button handlers
     
     ui.notifications.info("Table area has been cleaned");
   }
@@ -878,8 +886,6 @@ export class EventHandlers {
       }
     });
   }
-
-  // All other methods unchanged...
 
   // Clean up all event handlers
   static cleanup() {

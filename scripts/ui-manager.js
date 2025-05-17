@@ -149,16 +149,24 @@ export class UIManager {
             
             // Handle Mulligan tracking if active
             if (isMulliganActive) {
-              const newCount = discardCount + 1;
+              // Get current count and limit directly to avoid stale values
+              const currentCount = game.user.getFlag(MODULE_ID, 'discardCount') || 0;
+              const currentLimit = game.user.getFlag(MODULE_ID, 'discardLimit') || 0;
+              
+              const newCount = currentCount + 1;
+              console.log(`${MODULE_ID} | Mulligan discard: ${newCount}/${currentLimit}`);
+              
+              // Update the flag first
               await game.user.setFlag(MODULE_ID, 'discardCount', newCount);
               
               // Draw a card for Mulligan
               await window.FuAceCards.CardController.drawCard();
               
               // Check if we've hit the limit
-              if (newCount >= discardLimit) {
-                // End Mulligan mode
-                await this.endMulliganComplete();
+              if (newCount >= currentLimit) {
+                console.log(`${MODULE_ID} | Reached discard limit (${newCount}/${currentLimit}). Ending Mulligan.`);
+                // Force endMulligan to complete with a small delay to ensure flags are updated
+                setTimeout(() => UIManager.endMulliganComplete(), 100);
               } else {
                 // Re-render to update remaining discards display
                 this.renderHand();
@@ -434,7 +442,6 @@ export class UIManager {
     this.ensureHandAreaFunctional();
   }
 
-  // MODIFIED
   static async startMulligan() {
     // Check if already in Mulligan mode
     if (game.user.getFlag(MODULE_ID, 'mulliganActive')) {
@@ -493,14 +500,27 @@ export class UIManager {
     return true;
   }
 
-  // MODIFIED
   static async endMulliganComplete() {
-    const count = game.user.getFlag(MODULE_ID, 'discardCount') || 0;
+    console.log(`${MODULE_ID} | Ending Mulligan mode completely`);
     
-    // End the Mulligan state
-    await game.user.unsetFlag(MODULE_ID, 'mulliganActive');
-    await game.user.unsetFlag(MODULE_ID, 'discardLimit');
-    await game.user.unsetFlag(MODULE_ID, 'discardCount');
+    // Get current counts for logging
+    const count = game.user.getFlag(MODULE_ID, 'discardCount') || 0;
+    const limit = game.user.getFlag(MODULE_ID, 'discardLimit') || 0;
+    console.log(`${MODULE_ID} | Final Mulligan stats: ${count}/${limit} cards discarded`);
+    
+    // End the Mulligan state - use setFlag(false) instead of unsetFlag for reliability
+    await game.user.setFlag(MODULE_ID, 'mulliganActive', false);
+    await game.user.setFlag(MODULE_ID, 'discardCount', 0);
+    await game.user.setFlag(MODULE_ID, 'discardLimit', 0);
+    
+    // Double-check flags were cleared correctly
+    setTimeout(async () => {
+      const checkActive = game.user.getFlag(MODULE_ID, 'mulliganActive');
+      if (checkActive) {
+        console.warn(`${MODULE_ID} | Mulligan flag still active after clearing! Forcing unset...`);
+        await game.user.unsetFlag(MODULE_ID, 'mulliganActive');
+      }
+    }, 200);
     
     // Remove the Mulligan indicator
     const indicator = document.querySelector('.fu-mulligan-indicator');
@@ -514,7 +534,7 @@ export class UIManager {
     // Re-render hand to update UI
     this.renderHand();
     
-    // Ensure hand area is functional - ADDED
+    // Ensure hand area is functional
     this.ensureHandAreaFunctional();
   }
 
@@ -523,9 +543,8 @@ export class UIManager {
     
     // Show specific cancellation message
     ui.notifications.info(`Mulligan cancelled`);
-  }
-  
-  // MODIFIED
+  }  
+
   static initialize() {
     this.playerColorCache = new Map();
     this.activeTooltips = new Set();

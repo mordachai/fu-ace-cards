@@ -16,7 +16,6 @@ export class CardController {
 static async drawCard() {
   const piles = PileManager.getCurrentPlayerPiles();
   
-  // Check if deck exists
   if (!piles?.deck) {
     console.error(`${MODULE_ID} | Cannot draw: No deck assigned`);
     return false;
@@ -73,10 +72,22 @@ static async drawCard() {
 
   // If we reach here, we have available cards to draw
   try {
-    // Draw one card to hand
-    await piles.deck.deal([piles.hand], 1, { 
-      how: CONST.CARD_DRAW_MODES.RANDOM, 
-      chatNotification: false 
+    // Select a random card to draw instead of using deal
+    const cardToDraw = availableCards[Math.floor(Math.random() * availableCards.length)];
+    
+    // Check if this card already exists in hand
+    const existingInHand = Array.from(piles.hand.cards).find(c => c.id === cardToDraw.id);
+    if (existingInHand) {
+      console.error(`${MODULE_ID} | Card ${cardToDraw.id} already exists in hand!`);
+      // Mark it as drawn in the deck to prevent future attempts
+      await cardToDraw.update({drawn: true});
+      // Try drawing again - different card
+      return this.drawCard();
+    }
+    
+    // Use pass instead of deal to move the specific card
+    await piles.deck.pass(piles.hand, [cardToDraw.id], {
+      chatNotification: false
     });
     
     // Update UI
@@ -84,6 +95,20 @@ static async drawCard() {
     return true;
   } catch (error) {
     console.error(`${MODULE_ID} | Error drawing card:`, error);
+    // Log additional diagnostic info
+    console.log(`${MODULE_ID} | Draw operation failed. Checking card locations...`);
+    try {
+      const cardStates = game.cards.contents.flatMap(pile => 
+        Array.from(pile.cards).map(card => ({
+          id: card.id,
+          pile: pile.name,
+          drawn: card.drawn
+        }))
+      );
+      console.log(`${MODULE_ID} | Card states:`, cardStates);
+    } catch (e) {
+      console.error("Failed to log card diagnostics:", e);
+    }
     return false;
   }
 }
@@ -337,12 +362,15 @@ static async cleanTable() {
   UIManager.renderTable();
   SocketManager.emitCleanTable();
 
+  // Run a comprehensive handler verification
   if (window.FuAceCards?.EventHandlers) {
     window.FuAceCards.EventHandlers.cleanupHandDrawer();
     window.FuAceCards.EventHandlers.setupHandDrawer();
+    window.FuAceCards.EventHandlers.setupButtonHandlers(); // Re-setup ALL buttons
   } else if (typeof EventHandlers !== 'undefined') {
     EventHandlers.cleanupHandDrawer();
     EventHandlers.setupHandDrawer();
+    EventHandlers.setupButtonHandlers(); // Re-setup ALL buttons
   }
   
   console.log(`${MODULE_ID} | Table cleaned successfully`);
