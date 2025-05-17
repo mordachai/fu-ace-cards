@@ -523,7 +523,7 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
   const isMagicPair = setData.type === 'magic-pair';
   
   // Determine if this set targets multiple enemies or is single-target
-  const isMultiTarget = ['jackpot', 'magic-flush', 'blinding-flush', 'full-status', 'triple-support', 'forbidden-monarch'].includes(setData.type);
+  const isMultiTarget = ['jackpot', 'magic-flush', 'blinding-flush', 'full-status', 'triple-support', 'forbidden-monarch','double-trouble'].includes(setData.type);
   
   // Get suit information for each card
   const cardsWithSuits = setData.cards.map(card => {

@@ -1,0 +1,791 @@
+/* styles/fu-style.css */
+
+/* Table area (fixed at bottom) */
+#fu-table-area {
+  position: fixed;
+  top: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  min-width: 15%;
+  max-height: 200px;
+  border: 2px solid #333;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 10px;
+  border-radius: 8px;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow-x: auto;
+  padding-bottom: 10px;
+  flex-direction: column;
+}
+
+/* Hand area as a collapsible drawer with a 30px handle visible */
+#fu-hand-area {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  /* Leave 10px visible */
+  transform: translateX(-50%) translateY(calc(100% - 10px));
+  transition: transform 0.3s ease;
+  min-width: 20%;
+  max-height: 230px;
+  border: 2px solid #333;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 10px;
+  padding-top: 45px;
+  border-radius: 8px 8px 0 0;
+  z-index: 70;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  overflow-x: auto;
+  flex-direction: column;
+}
+
+/* Open state: slide fully into view */
+#fu-hand-area.open {
+  transform: translateX(-50%) translateY(0) !important;
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  z-index: 70 !important;
+}
+
+/* Handle indicator: small bar at top of drawer */
+#fu-hand-area::before {
+  /* content: '';
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 60px;
+  height: 4px;
+  background: #555;
+  border-radius: 2px; */
+  display: none;
+}
+
+/* Cards container */
+.fu-hud-cards {
+  margin-top: 40px;
+  min-height: 120px;
+  /* display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex: 1; */
+}
+
+/* Controls container */
+.fu-hud-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+/* Stack controls vertically in hand area */
+#fu-hand-area .fu-hud-controls {
+  flex-direction: column;
+}
+
+/* Card thumbnail styling */
+.fu-card {
+  width: 80px;
+  height: 120px;
+  margin: 0 5px;
+  border: 1px solid #555;
+  border-radius: 5px;
+  background-size: cover;
+  background-position: center;
+  cursor: pointer;
+  transition: transform 0.25s, border-color 0.25s, box-shadow 0.25s;
+  position: relative;
+}
+.fu-card:hover {
+  transform: scale(1.1);
+  filter: drop-shadow(0 0 3px #fff7e3);
+}
+
+/* Player color borders */
+.fu-card-owned {
+  border: 3px solid var(--player-color);
+}
+
+/* Valid set highlighting */
+.fu-card.fu-valid-set {
+  box-shadow: 0 0 10px var(--hand-color);
+  border-color: var(--hand-color);
+  border-width: 3px;
+}
+
+/* Different hand types */
+.fu-card.fu-hand-jackpot { --hand-color: #FFD700; }
+.fu-card.fu-hand-magic-flush { --hand-color: #9370DB; }
+.fu-card.fu-hand-blinding-flush { --hand-color: #87CEEB; }
+.fu-card.fu-hand-full-status { --hand-color: #32CD32; }
+.fu-card.fu-hand-triple-support { --hand-color: #00FA9A; }
+.fu-card.fu-hand-double-trouble { --hand-color: #FF6347; }
+.fu-card.fu-hand-magic-pair { --hand-color: #DDA0DD; }
+.fu-card.fu-hand-forbidden-monarch { --hand-color: #8B0000; }
+
+/* Partial sets */
+.fu-card.fu-partial-set {
+  border-style: dashed;
+  opacity: 0.9;
+  border-color: #888;
+}
+
+/* Button styling */
+.fu-button {
+  width: 24px;
+  height: 24px;
+  padding: 5px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: #c9c6bd;
+  background: rgba(0, 0, 0, 0.5);
+  border: #c9c6bd 1px solid;
+  border-radius: 4px;
+}
+
+.fu-button:hover {
+  border-color: white;
+  color: white;
+}
+
+.fu-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Set info bar styling */
+.fu-set-info-bar {
+  position: relative; /* Change from absolute */
+  min-width: max-content; /* Ensure it expands to fit content */
+  display: flex;
+  flex-wrap: nowrap; /* Prevent wrapping */
+  align-items: center;
+  padding: 10px;
+  gap: 10px;
+  height: auto;
+  min-height: 40px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Table info bar - positioned at bottom */
+#fu-table-area .fu-set-info-bar {
+  bottom: 5px;
+  border-radius: 0 0 8px 8px;
+  border-top: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+/* Hand info bar - positioned at top */
+#fu-hand-area .fu-set-info-bar {
+  top: 5px;
+  border-radius: 8px 8px 0 0;
+}
+
+/* Show when sets detected */
+.fu-set-info-bar.has-sets {
+  opacity: 1;
+}
+
+/* Individual set indicators - general styling */
+.fu-set-indicator {
+  flex: 0 0 auto; /* Don't shrink indicators */
+  padding: 5px 8px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--set-color);
+  color: var(--set-color);
+  font-weight: 500;
+  font-size: 11px;
+  white-space: nowrap; /* Keep text on one line */
+  pointer-events: auto;
+}
+
+.fu-set-indicator:hover {
+  box-shadow: 0 0 8px var(--set-color);
+}
+
+/* Hand indicators - horizontal layout */
+#fu-hand-area .fu-set-indicator {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Table indicators - vertical layout */
+#fu-table-area .fu-set-indicator {
+  display: block;
+  text-align: center;
+  padding: 4px 8px;
+  line-height: 1.2;
+  position: relative;
+  padding-left: 24px; /* Make space for the icon */
+}
+
+/* Icon for hand indicators */
+#fu-hand-area .fu-set-indicator::before {
+  content: '♦';
+  margin-right: 4px;
+}
+
+/* Icon for table indicators */
+#fu-table-area .fu-set-indicator::before {
+  position: absolute;
+  left: 8px;
+  top: 7px;
+}
+
+/* Set name display in table indicators */
+#fu-table-area .fu-set-indicator .set-name {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 2px;
+  text-align: center;
+}
+
+/* Player name display in table indicators */
+#fu-table-area .fu-set-indicator .player-name {
+  display: block;
+  font-size: 10px;
+  opacity: 0.8;
+  text-align: center;
+}
+
+/* Minimal style */
+.fu-set-info-bar.minimal {
+  background: none;
+  height: 20px;
+}
+
+.fu-set-info-bar.minimal .fu-set-indicator {
+  border: none;
+  background: none;
+  padding: 0 5px;
+  text-transform: uppercase;
+  font-size: 10px;
+}
+
+/* Slide style */
+.fu-set-info-bar.slide {
+  opacity: 1;
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+}
+
+/* Set info panel - container for the info bar */
+.fu-set-info-panel {
+  position: absolute;
+  width: auto;
+  min-width: 60%;
+  max-width: 90%;
+  height: auto;
+  max-height: 40px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  background: rgba(0, 0, 0, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  z-index: 5;
+}
+
+/* Hide scrollbar while keeping functionality */
+.fu-set-info-panel::-webkit-scrollbar {
+  height: 4px;
+}
+
+.fu-set-info-panel::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+/* Table info panel - positioned at bottom */
+#fu-table-area .fu-set-info-panel {
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 5px;
+}
+
+/* Hand info panel - positioned at top */
+#fu-hand-area .fu-set-info-panel {
+  top: 25px; /* Position below the handle */
+  left: 50%;
+  transform: translateX(-50%);
+  margin-bottom: 5px;
+}
+
+#fu-table-area:hover .fu-set-info-bar.slide {
+  transform: translateY(0);
+}
+
+#fu-hand-area:hover .fu-set-info-bar.slide {
+  transform: translateY(0);
+}
+
+/* Icons for set types */
+.fu-set-indicator::before {
+  content: '♦';
+}
+
+.fu-set-indicator.jackpot::before { content: '👑'; }
+.fu-set-indicator.magic-flush::before { content: '✨'; }
+.fu-set-indicator.blinding-flush::before { content: '💫'; }
+.fu-set-indicator.full-status::before { content: '🎭'; }
+.fu-set-indicator.triple-support::before { content: '💚'; }
+.fu-set-indicator.double-trouble::before { content: '⚔️'; }
+.fu-set-indicator.magic-pair::before { content: '✌️'; }
+.fu-set-indicator.forbidden-monarch::before { content: '👹'; }
+
+/* Deck Assignment Dialog styles */
+.deck-assignment-form fieldset {
+  margin: 1rem 0;
+  padding: 0.5rem;
+  border: 1px solid #444;
+  border-radius: 4px;
+}
+
+.deck-assignment-form legend {
+  font-weight: bold;
+  padding: 0 0.5rem;
+}
+
+.deck-assignment-form .form-group {
+  margin: 0.5rem 0;
+}
+
+.deck-assignment-form label {
+  display: inline-block;
+  width: 120px;
+}
+
+.deck-assignment-form select {
+  width: calc(100% - 130px);
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid #444;
+  padding: 2px 5px;
+}
+
+.deck-assignment-form button {
+  background: rgba(0, 0, 0, 0.5);
+  border: 1px solid #c9c6bd;
+  padding: 5px 10px;
+  cursor: pointer;
+  margin-top: 1rem;
+}
+
+.deck-assignment-form button:hover {
+  background: rgba(0, 0, 0, 0.7);
+  border-color: white;
+}
+
+/* Rich tooltips for hand sets */
+.fu-set-tooltip {
+  position: absolute;
+  background: rgba(0, 0, 0, 0.95);
+  border: 2px solid var(--set-color);
+  border-radius: 8px;
+  padding: 12px;
+  max-width: 350px;
+  z-index: 1000;
+  font-size: 12px;
+  color: #e0e0e0;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.5);
+}
+
+.tooltip-header {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #444;
+  padding-bottom: 6px;
+}
+
+.set-name {
+  font-weight: bold;
+  color: var(--set-color);
+  font-size: 12px;
+}
+
+.mp-cost {
+  color: #88ccff;
+  font-weight: bold;
+}
+
+.mp-cost.insufficient {
+  color: #ff4444;
+}
+
+.tooltip-requirements {
+  color: #ccc;
+  font-size: 11px;
+}
+
+.tooltip-cards,
+.tooltip-effect {
+  margin: 6px 0;
+  line-height: 1.4;
+}
+
+.tooltip-requirements strong,
+.tooltip-cards strong,
+.tooltip-effect strong {
+  color: #f0f0f0;
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* Highlight calculated values */
+.tooltip-effect {
+  color: #d0d0d0;
+}
+
+/* Style for calculated values in brackets */
+.tooltip-effect::v-deep(【) {
+  color: #ffd700;
+  font-weight: bold;
+}
+
+.tooltip-warning {
+  color: #ff4444;
+  font-style: italic;
+  margin-top: 8px;
+  text-align: center;
+}
+
+.tooltip-hint {
+  color: #888;
+  font-size: 10px;
+  text-align: center;
+  margin-top: 8px;
+  border-top: 1px solid #333;
+  padding-top: 6px;
+}
+
+/* Damage type colors */
+.damage-fire { color: #ff6b6b; }
+.damage-ice { color: #74c0fc; }
+.damage-earth { color: #8b6914; }
+.damage-air { color: #98fb98; }
+.damage-light { color: #fffacd; }
+.damage-dark { color: #9370db; }
+
+.fu-chat-cards-container {
+  display: flex;
+  margin: 10px 0;
+  justify-content: space-evenly;
+}
+
+.fu-chat-card-img {
+  width: 60px;
+  height: 90px;
+  object-fit: contain;
+  border-radius: 5px;
+  border: 1px solid #555; /* Simple border without player color */
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  z-index: 1;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+/* Remove player-specific coloring for chat cards */
+.message .fu-chat-card-img.fu-card-owned {
+  border-color: #555; /* Override the player color with standard border */
+}
+
+.fu-chat-card-img:hover {
+  transform: translateY(-10px);
+  z-index: 10;
+}
+
+.fu-card-clickable {
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Selected card styling with inner glow */
+.fu-selected-card {
+  transform: translateY(-10px) !important;
+  z-index: 20;
+  position: relative;
+}
+
+/* Inner glow color based on damage type */
+.fu-selected-card {
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.7), inset 0 0 8px rgba(255, 255, 255, 0.7);
+}
+
+/* Fire (red) glow */
+.damageType.fire ~ .fu-chat-cards-container .fu-selected-card {
+  box-shadow: 0 0 10px rgba(255, 107, 107, 0.7), inset 0 0 8px rgba(255, 107, 107, 0.7);
+}
+
+/* Ice (blue) glow */
+.damageType.ice ~ .fu-chat-cards-container .fu-selected-card {
+  box-shadow: 0 0 10px rgba(116, 192, 252, 0.7), inset 0 0 8px rgba(116, 192, 252, 0.7);
+}
+
+/* Earth (brown) glow */
+.damageType.earth ~ .fu-chat-cards-container .fu-selected-card {
+  box-shadow: 0 0 10px rgba(139, 105, 20, 0.7), inset 0 0 8px rgba(139, 105, 20, 0.7);
+}
+
+/* Air (green) glow */
+.damageType.air ~ .fu-chat-cards-container .fu-selected-card {
+  box-shadow: 0 0 10px rgba(152, 251, 152, 0.7), inset 0 0 8px rgba(152, 251, 152, 0.7);
+}
+
+/* Light (yellow) glow */
+.damageType.light ~ .fu-chat-cards-container .fu-selected-card {
+  box-shadow: 0 0 10px rgba(255, 250, 205, 0.7), inset 0 0 8px rgba(255, 250, 205, 0.7);
+}
+
+/* Dark (purple) glow */
+.damageType.dark ~ .fu-chat-cards-container .fu-selected-card {
+  box-shadow: 0 0 10px rgba(147, 112, 219, 0.7), inset 0 0 8px rgba(147, 112, 219, 0.7);
+}
+
+.fu-set-activation {
+  background: rgba(0, 0, 0, 0.05);
+  padding: 8px;
+  border-radius: 5px;
+  margin-bottom: 5px;
+}
+
+/* Joker card styling in hand (editable) */
+.fu-joker-card {
+  position: relative;
+  cursor: context-menu; /* Indicate right-click functionality */
+}
+
+/* Joker on table (locked) */
+.fu-joker-card-table {
+  position: relative;
+}
+
+/* Add a visual indicator of assigned value - slightly different for table vs hand */
+.fu-joker-card::after,
+.fu-joker-card-table::after {
+  content: attr(data-phantom-value) attr(data-phantom-suit);
+  position: absolute;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+/* Position differently for hand */
+.fu-joker-card::after {
+  top: 5px;
+  right: 5px;
+  padding: 3px 6px;
+  opacity: 0.8;
+}
+
+/* Position differently for table */
+.fu-joker-card-table::after {
+  bottom: 5px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 5px;
+  opacity: 0.9;
+}
+
+/* Jokers with assigned values in hand */
+.fu-joker-card[data-phantom-suit]:not([data-phantom-suit=""]) {
+  box-shadow: 0 0 10px rgba(255, 215, 0, 0.7);
+}
+
+/* Locked jokers on table */
+.fu-joker-card-table[data-phantom-suit]:not([data-phantom-suit=""]) {
+  box-shadow: 0 0 8px rgba(255, 215, 0, 0.5);
+}
+
+/* Subtle pulsing effect to suggest right-click for unassigned jokers in hand */
+@keyframes jokerPulse {
+  0% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.3); }
+  50% { box-shadow: 0 0 10px rgba(255, 215, 0, 0.7); }
+  100% { box-shadow: 0 0 5px rgba(255, 255, 255, 0.3); }
+}
+
+.fu-joker-card:not([data-phantom-suit]), 
+.fu-joker-card[data-phantom-suit=""] {
+  animation: jokerPulse 2s infinite;
+}
+
+.damage-pending {
+  opacity: 0.7;
+}
+
+.damage-ready {
+  opacity: 1;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 99, 71, 0.4); }
+  70% { box-shadow: 0 0 0 5px rgba(255, 99, 71, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 99, 71, 0); }
+}
+
+/* Card discard button */
+.fu-card-discard {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 20px;
+  height: 20px;
+  background: rgba(255, 0, 0, 0.8);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  cursor: pointer;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 20; /* Ensure it's above the card */
+  box-shadow: 0 0 3px rgba(0, 0, 0, 0.5);
+}
+
+/* Show discard button on hover */
+.fu-card:hover .fu-card-discard {
+  opacity: 1;
+}
+
+/* Hover effect on the discard button */
+.fu-card-discard:hover {
+  background: rgba(255, 0, 0, 1);
+  transform: scale(1.1);
+}
+
+
+/* MULLIGAN CSS */
+.fu-mulligan-indicator {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.7);
+  color: #e0e0e0;
+  padding: 4px 10px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  z-index: 5;
+  white-space: nowrap;
+}
+
+.fu-mulligan-indicator span {
+  display: inline-block;
+  padding-left: 20px;
+  position: relative;
+}
+
+.fu-mulligan-indicator span::before {
+  content: '\f2f1';
+  font-family: 'Font Awesome 5 Free';
+  font-weight: 900;
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #77c2ff;
+}
+
+
+/* Hand drawer handle styling */
+.fu-drawer-handle {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 20px;
+  cursor: pointer;
+  z-index: 10;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* Style the handle element */
+.fu-drawer-handle::before {
+  content: '';
+  width: 60px;
+  height: 10px;
+  background: #f4d69f;
+  border-radius: 2px;
+  transition: background-color 0.2s;;
+}
+
+/* Change handle color on hover */
+.fu-drawer-handle:hover::before {
+  background: #fffef9;
+}
+
+/* Visual indicator for locked state */
+#fu-hand-area.locked .fu-drawer-handle::before {
+  background: #4a8;
+}
+
+/* Make sure the drawer stays fixed in locked state */
+#fu-hand-area.locked {
+  transform: translateX(-50%) translateY(0) !important;
+}
+
+
+/*45645NHGFHFT56N 457567 R YR5*/
+#fu-table-area, #fu-hand-area {
+  display: flex;
+  flex-direction: row; /* Keep cards horizontal */
+  align-items: flex-start; /* Align to top */
+  flex-wrap: nowrap; /* Prevent wrapping */
+  padding: 10px;
+}
+
+/* Position info panel without breaking layout */
+.fu-set-info-panel {
+  position: absolute;
+  top: -40px; /* Position ABOVE the main container */
+  left: 0;
+  width: 100%;
+  height: 35px;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
+  z-index: 10;
+}
+
+/* Make drawer handle more visible */
+.fu-drawer-handle {
+  position: absolute;
+  top: -15px; /* Move it slightly above the container */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 15px;
+  cursor: pointer;
+  z-index: 20; /* Above the info panel */
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px 8px 0 0;
+  border: 1px solid #666;
+}
+
+.fu-drawer-handle::before {
+  content: '';
+  width: 60px;
+  height: 4px;
+  background: #ffcc00; /* Bright yellow for visibility */
+  border-radius: 2px;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
