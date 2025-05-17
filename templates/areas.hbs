@@ -1,12 +1,11 @@
 <div id="fu-table-area" class="fu-area">
   <div id="fu-table-cards" class="fu-hud-cards"></div>
   <div class="fu-hud-controls">
-    {{!-- Show clean table button to GM or to players with hand cards --}}
     {{#if isGM}}
-      <button id="fu-clean-table" class="fu-button"><i class="fa-solid fa-broom-wide" title="Clean Table"></i></button>
+      <button id="fu-manual-reset" class="fu-button" title="Clean Table (Removes all cards from table)"><i class="fas fa-broom"></i></button>
     {{else}}
       {{#if hasHandCards}}
-        <button id="fu-clean-table" class="fu-button"><i class="fa-solid fa-broom-wide" title="Clean Table"></i></button>
+        <button id="fu-manual-reset" class="fu-button" title="Clean Table (Removes all cards from table)"><i class="fas fa-broom"></i></button>
       {{/if}}
     {{/if}}
   </div>

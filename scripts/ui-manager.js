@@ -69,111 +69,111 @@ export class UIManager {
     
     // Update set info bar for table
     if (cards.size > 0) {
-    // Use the imported EventHandlers or a safe reference
-    const handleTableSetClick = window.FuAceCards?.handleTableSetClick || 
+      // Use the imported EventHandlers or a safe reference
+      const handleTableSetClick = window.FuAceCards?.handleTableSetClick || 
                                 EventHandlers.handleTableSetClick.bind(EventHandlers);
-    updateSetInfoBar(Array.from(cards), 'table', handleTableSetClick);
+      updateSetInfoBar(Array.from(cards), 'table', handleTableSetClick);
     }
   }
   
   // Render the hand area
   static renderHand() {
-  // Bail out if the hand area isn't in the DOM
-  const handCards = document.getElementById('fu-hand-cards');
-  if (!handCards) return;
+    // Bail out if the hand area isn't in the DOM
+    const handCards = document.getElementById('fu-hand-cards');
+    if (!handCards) return;
 
-  handCards.innerHTML = '';
-  
-  // Check if player has piles assigned
-  const piles = getCurrentPlayerPiles();
-  if (!piles?.hand) return;
-  
-  const hand = piles.hand;
-  if (!hand) return;
+    handCards.innerHTML = '';
+    
+    // Check if player has piles assigned
+    const piles = getCurrentPlayerPiles();
+    if (!piles?.hand) return;
+    
+    const hand = piles.hand;
+    if (!hand) return;
 
-  // Check for active discard abilities
-  const isMulliganActive = game.user.getFlag(MODULE_ID, 'mulliganActive') === true;
-  const isHighOrLowActive = game.user.getFlag(MODULE_ID, 'highOrLowActive') === true;
-  const allowGeneralDiscard = game.settings.get(MODULE_ID, 'allowCardDiscard') || false;
-  
-  // Get discard limits for abilities like Mulligan
-  const discardLimit = game.user.getFlag(MODULE_ID, 'discardLimit') || 0;
-  const discardCount = game.user.getFlag(MODULE_ID, 'discardCount') || 0;
-  const canDiscard = allowGeneralDiscard || isMulliganActive || isHighOrLowActive;
-  const remainingDiscards = discardLimit - discardCount;
+    // Check for active discard abilities
+    const isMulliganActive = game.user.getFlag(MODULE_ID, 'mulliganActive') === true;
+    const isHighOrLowActive = game.user.getFlag(MODULE_ID, 'highOrLowActive') === true;
+    const allowGeneralDiscard = game.settings.get(MODULE_ID, 'allowCardDiscard') || false;
+    
+    // Get discard limits for abilities like Mulligan
+    const discardLimit = game.user.getFlag(MODULE_ID, 'discardLimit') || 0;
+    const discardCount = game.user.getFlag(MODULE_ID, 'discardCount') || 0;
+    const canDiscard = allowGeneralDiscard || isMulliganActive || isHighOrLowActive;
+    const remainingDiscards = discardLimit - discardCount;
 
-  // Remove any existing Mulligan indicator to avoid duplicates
-  const existingIndicator = document.querySelector('.fu-mulligan-indicator');
-  if (existingIndicator) {
-    existingIndicator.remove();
-  }
-
-  // Add a small indicator for Mulligan if active
-  if (isMulliganActive && handCards.parentElement && remainingDiscards > 0) {
-    const mulliganIndicator = document.createElement('div');
-    mulliganIndicator.className = 'fu-mulligan-indicator';
-    mulliganIndicator.innerHTML = `<span>Mulligan: ${remainingDiscards} discard${remainingDiscards !== 1 ? 's' : ''} remaining</span>`;
-    handCards.parentElement.prepend(mulliganIndicator);
-  }
-
-  for (const c of hand.cards) {
-    const d = document.createElement('div');
-    d.className = 'fu-card';
-    d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
-    d.dataset.cardId = c.id;
-
-    // Only add discard button if discarding is allowed and we have discards remaining
-    if (canDiscard && (!isMulliganActive || remainingDiscards > 0)) {
-      const discardBtn = document.createElement('div');
-      discardBtn.className = 'fu-card-discard';
-      discardBtn.innerHTML = '<i class="fas fa-times"></i>';
-      discardBtn.title = isMulliganActive ? `Discard card (${remainingDiscards} remaining)` : 'Discard this card';
-      
-      // Add click handler for the discard button
-      discardBtn.addEventListener('click', async (event) => {
-        event.stopPropagation(); // Prevent the card click from triggering
-        
-        // Validate the card is still in hand
-        if (!hand.cards.has(c.id)) {
-          ui.notifications.warn('Card no longer in hand');
-          this.renderHand();
-          return;
-        }
-        
-        // Clean up tooltips
-        this.cleanupAllTooltips();
-        
-        // Directly discard this card
-        if (window.FuAceCards?.CardController) {
-          await window.FuAceCards.CardController.discardCard(c.id);
-          
-          // Handle Mulligan tracking if active
-          if (isMulliganActive) {
-            const newCount = discardCount + 1;
-            await game.user.setFlag(MODULE_ID, 'discardCount', newCount);
-            
-            // Draw a card for Mulligan
-            await window.FuAceCards.CardController.drawCard();
-            
-            // Check if we've hit the limit
-            if (newCount >= discardLimit) {
-              // End Mulligan mode
-              await this.endMulliganComplete();
-            } else {
-              // Re-render to update remaining discards display
-              this.renderHand();
-            }
-          }
-        } else if (window.FuAceCards?.discardCard) {
-          await window.FuAceCards.discardCard(c.id);
-        } else {
-          console.error(`${MODULE_ID} | Cannot find discardCard method`);
-        }
-      });
-      
-      // Append the discard button to the card
-      d.appendChild(discardBtn);
+    // Remove any existing Mulligan indicator to avoid duplicates
+    const existingIndicator = document.querySelector('.fu-mulligan-indicator');
+    if (existingIndicator) {
+      existingIndicator.remove();
     }
+
+    // Add a small indicator for Mulligan if active
+    if (isMulliganActive && handCards.parentElement && remainingDiscards > 0) {
+      const mulliganIndicator = document.createElement('div');
+      mulliganIndicator.className = 'fu-mulligan-indicator';
+      mulliganIndicator.innerHTML = `<span>Mulligan: ${remainingDiscards} discard${remainingDiscards !== 1 ? 's' : ''} remaining</span>`;
+      handCards.parentElement.prepend(mulliganIndicator);
+    }
+
+    for (const c of hand.cards) {
+      const d = document.createElement('div');
+      d.className = 'fu-card';
+      d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
+      d.dataset.cardId = c.id;
+
+      // Only add discard button if discarding is allowed and we have discards remaining
+      if (canDiscard && (!isMulliganActive || remainingDiscards > 0)) {
+        const discardBtn = document.createElement('div');
+        discardBtn.className = 'fu-card-discard';
+        discardBtn.innerHTML = '<i class="fas fa-times"></i>';
+        discardBtn.title = isMulliganActive ? `Discard card (${remainingDiscards} remaining)` : 'Discard this card';
+        
+        // Add click handler for the discard button
+        discardBtn.addEventListener('click', async (event) => {
+          event.stopPropagation(); // Prevent the card click from triggering
+          
+          // Validate the card is still in hand
+          if (!hand.cards.has(c.id)) {
+            ui.notifications.warn('Card no longer in hand');
+            this.renderHand();
+            return;
+          }
+          
+          // Clean up tooltips
+          this.cleanupAllTooltips();
+          
+          // Directly discard this card
+          if (window.FuAceCards?.CardController) {
+            await window.FuAceCards.CardController.discardCard(c.id);
+            
+            // Handle Mulligan tracking if active
+            if (isMulliganActive) {
+              const newCount = discardCount + 1;
+              await game.user.setFlag(MODULE_ID, 'discardCount', newCount);
+              
+              // Draw a card for Mulligan
+              await window.FuAceCards.CardController.drawCard();
+              
+              // Check if we've hit the limit
+              if (newCount >= discardLimit) {
+                // End Mulligan mode
+                await this.endMulliganComplete();
+              } else {
+                // Re-render to update remaining discards display
+                this.renderHand();
+              }
+            }
+          } else if (window.FuAceCards?.discardCard) {
+            await window.FuAceCards.discardCard(c.id);
+          } else {
+            console.error(`${MODULE_ID} | Cannot find discardCard method`);
+          }
+        });
+        
+        // Append the discard button to the card
+        d.appendChild(discardBtn);
+      }
 
       // Check if this is a joker card
       const isJoker = c.name.toLowerCase().includes('joker') || c.getFlag(MODULE_ID, 'isJoker');
@@ -263,54 +263,132 @@ export class UIManager {
       
       updateSetInfoBar(Array.from(hand.cards), 'hand', handleSetClick);
     }
+    
+    // Verify handlers are present - ADDED
+    this.ensureHandAreaFunctional();
   }
   
   // Show the hand area
   static showHandArea() {
     const handArea = document.getElementById('fu-hand-area');
-    if (handArea) {
-      handArea.classList.add('open');
-      clearTimeout(handArea._drawerTimeout);
-      handArea._drawerTimeout = setTimeout(() => {
-        handArea.classList.remove('open');
-      }, 10000);
+    if (!handArea) return;
+    
+    // Verify event handlers are present - ADDED
+    this.ensureHandAreaFunctional();
+    
+    // Ensure area is visible
+    handArea.classList.add('open');
+    
+    // Clear any existing timeout
+    clearTimeout(handArea._autoCloseTimeout);
+    
+    // Set new timeout for auto-close
+    handArea._autoCloseTimeout = setTimeout(() => {
+      handArea.classList.remove('open');
+    }, 10000);
+  }
+
+  // Add new method to ensure handlers exist - ADDED
+  static ensureHandAreaFunctional() {
+    if (window.FuAceCards?.EventHandlers) {
+      window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+    } else if (typeof EventHandlers !== 'undefined') {
+      EventHandlers.verifyHandDrawerHandlers();
+    }
+  }
+
+  // Setup DOM change detection - ADDED
+  static setupDomChangeDetection() {
+    // Only create the observer if it doesn't exist
+    if (!this.domObserver && typeof MutationObserver !== 'undefined') {
+      this.domObserver = new MutationObserver((mutations) => {
+        let handAreaAffected = false;
+        
+        // Check if any mutations affected the hand area or its ancestors
+        for (const mutation of mutations) {
+          // Check if mutation directly affects hand area
+          if (mutation.target.id === 'fu-hand-area') {
+            handAreaAffected = true;
+            break;
+          }
+          
+          // Check if any added/removed nodes contain or are hand area
+          if (mutation.addedNodes.length || mutation.removedNodes.length) {
+            const changedNodes = [...mutation.addedNodes, ...mutation.removedNodes];
+            for (const node of changedNodes) {
+              if (node.id === 'fu-hand-area' || 
+                  (node.contains && node.contains(document.getElementById('fu-hand-area')))) {
+                handAreaAffected = true;
+                break;
+              }
+            }
+          }
+          
+          // Check if mutation is an attribute change on a parent of hand area
+          if (mutation.type === 'attributes') {
+            const handArea = document.getElementById('fu-hand-area');
+            if (handArea && (mutation.target.contains(handArea) || handArea.contains(mutation.target))) {
+              handAreaAffected = true;
+              break;
+            }
+          }
+        }
+        
+        // If hand area was affected, ensure handlers are attached
+        if (handAreaAffected) {
+          this.ensureHandAreaFunctional();
+        }
+      });
+      
+      // Start observing once DOM is ready
+      setTimeout(() => {
+        const handArea = document.getElementById('fu-hand-area');
+        if (handArea) {
+          this.domObserver.observe(document.body, { 
+            childList: true, 
+            subtree: true,
+            attributes: true
+          });
+          console.log(`${MODULE_ID} | DOM observer for hand area initialized`);
+        }
+      }, 500);
     }
   }
 
   static getPlayerColor(userId) {
-  // Add caching to avoid repeatedly getting the same color
-  if (!this.playerColorCache) {
-    this.playerColorCache = new Map();
-  }
-  
-  if (this.playerColorCache.has(userId)) {
-    return this.playerColorCache.get(userId);
-  }
-  
-  const user = game.users.get(userId);
-  const color = user?.color || '#FFFFFF';
-  this.playerColorCache.set(userId, color);
-  return color;
+    // Add caching to avoid repeatedly getting the same color
+    if (!this.playerColorCache) {
+      this.playerColorCache = new Map();
+    }
+    
+    if (this.playerColorCache.has(userId)) {
+      return this.playerColorCache.get(userId);
+    }
+    
+    const user = game.users.get(userId);
+    const color = user?.color || '#FFFFFF';
+    this.playerColorCache.set(userId, color);
+    return color;
   }
 
   // Apply player color to card element
   static applyPlayerColor(cardElement, card) {
-  // Add safety check for settings
-  if (!game.settings || !game.settings.get) return;
-  
-  try {
-      if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.SHOW_PLAYER_COLORS)) return;
-      
-      const ownerId = card.getFlag(MODULE_ID, 'ownerId');
-      if (ownerId) {
-      const color = this.getPlayerColor(ownerId);
-      cardElement.dataset.ownerId = ownerId;
-      cardElement.style.setProperty('--player-color', color);
-      cardElement.classList.add('fu-card-owned');
-      }
-  } catch (error) {
-      console.warn(`${MODULE_ID} | Could not apply player color:`, error);
-  }
+    // Add safety check for settings
+    if (!game.settings || !game.settings.get) return;
+    
+    try {
+        if (!game.settings.get(MODULE_ID, SETTINGS_KEYS.SHOW_PLAYER_COLORS)) return;
+        
+        const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+        if (ownerId) {
+        const color = this.getPlayerColor(ownerId);
+        cardElement.dataset.ownerId = ownerId;
+        cardElement.style.setProperty('--player-color', color);
+        cardElement.classList.add('fu-card-owned');
+        }
+    } catch (error) {
+        console.warn(`${MODULE_ID} | Could not apply player color:`, error);
+    }
   }
   
   // Create tooltip for card
@@ -328,7 +406,7 @@ export class UIManager {
     return tooltip;
   }
   
-  // Clean up all tooltips
+  // Clean up all tooltips - MODIFIED
   static cleanupAllTooltips() {
     // Remove any active tooltips
     if (this.activeTooltips) {
@@ -351,8 +429,12 @@ export class UIManager {
     
     // Clear card highlights
     clearHighlights();
+    
+    // Verify hand area functionality - ADDED
+    this.ensureHandAreaFunctional();
   }
 
+  // MODIFIED
   static async startMulligan() {
     // Check if already in Mulligan mode
     if (game.user.getFlag(MODULE_ID, 'mulliganActive')) {
@@ -405,9 +487,13 @@ export class UIManager {
     // Re-render hand to show discard buttons
     this.renderHand();
     
+    // Ensure hand area is functional - ADDED
+    this.ensureHandAreaFunctional();
+    
     return true;
   }
 
+  // MODIFIED
   static async endMulliganComplete() {
     const count = game.user.getFlag(MODULE_ID, 'discardCount') || 0;
     
@@ -427,6 +513,9 @@ export class UIManager {
     
     // Re-render hand to update UI
     this.renderHand();
+    
+    // Ensure hand area is functional - ADDED
+    this.ensureHandAreaFunctional();
   }
 
   static async endMulligan() {
@@ -436,13 +525,14 @@ export class UIManager {
     ui.notifications.info(`Mulligan cancelled`);
   }
   
-  // Initialize the UI manager
+  // MODIFIED
   static initialize() {
     this.playerColorCache = new Map();
     this.activeTooltips = new Set();
+    
+    // Register the MutationObserver to detect DOM changes - ADDED
+    this.setupDomChangeDetection();
   }
-
-
 }
 
 // Initialize the class when imported

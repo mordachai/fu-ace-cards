@@ -11,7 +11,7 @@ import { DamageIntegration } from './damage-integration.js';
 import { HealingIntegration } from './healing-integration.js';
 
 export class CardController {
-  
+
 // Draw a card from deck to hand
 static async drawCard() {
   const piles = PileManager.getCurrentPlayerPiles();
@@ -125,8 +125,24 @@ static async playCardToTable(card) {
     return false;
   }
   
+  // Simple check - make sure card is in hand before proceeding
+  if (!piles.hand.cards.has(card.id)) {
+    ui.notifications.warn("Card not found in hand");
+    return false;
+  }
+  
   try {
     await piles.hand.pass(tablePile, [card.id], { chatNotification: false });
+    
+    // Double-check the card moved correctly
+    if (piles.hand.cards.has(card.id)) {
+      console.warn(`${MODULE_ID} | Card remained in hand after pass operation`);
+    }
+    
+    if (!tablePile.cards.has(card.id)) {
+      console.warn(`${MODULE_ID} | Card didn't arrive on table after pass operation`);
+      return false;
+    }
     
     // Set owner flag on the card AFTER successful pass
     const tableCard = tablePile.cards.get(card.id);
@@ -148,10 +164,18 @@ static async playCardToTable(card) {
     
     UIManager.renderHand();
     UIManager.renderTable();
+    
+    // Verify handlers are still attached
+    if (window.FuAceCards?.EventHandlers) {
+      window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+    } else if (typeof EventHandlers !== 'undefined') {
+      EventHandlers.verifyHandDrawerHandlers();
+    }
+    
     return true;
   } catch (error) {
     console.error("Error playing card:", error);
-    UIManager.renderHand(); // Re-render to ensure UI is in sync
+    UIManager.renderHand();
     return false;
   }
 }
@@ -244,6 +268,13 @@ static async playSetToTable(setData, indicator) {
     const setName = SET_NAMES[setType] || setType.replace('-', ' ').split(' ').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
+
+        // Verify handlers are still attached
+    if (window.FuAceCards?.EventHandlers) {
+      window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+    } else if (typeof EventHandlers !== 'undefined') {
+      EventHandlers.verifyHandDrawerHandlers();
+    }
     
     return true;
     
@@ -305,6 +336,14 @@ static async cleanTable() {
   UIManager.cleanupAllTooltips();
   UIManager.renderTable();
   SocketManager.emitCleanTable();
+
+  if (window.FuAceCards?.EventHandlers) {
+    window.FuAceCards.EventHandlers.cleanupHandDrawer();
+    window.FuAceCards.EventHandlers.setupHandDrawer();
+  } else if (typeof EventHandlers !== 'undefined') {
+    EventHandlers.cleanupHandDrawer();
+    EventHandlers.setupHandDrawer();
+  }
   
   console.log(`${MODULE_ID} | Table cleaned successfully`);
   return true;
@@ -328,6 +367,14 @@ static async resetHand() {
   UIManager.cleanupAllTooltips();
   
   UIManager.renderHand();
+  
+  // Verify handlers are still attached
+  if (window.FuAceCards?.EventHandlers) {
+    window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+  } else if (typeof EventHandlers !== 'undefined') {
+    EventHandlers.verifyHandDrawerHandlers();
+  }
+  
   return true;
 }
   
@@ -348,7 +395,7 @@ static async activateTableSet(setData, playerId) {
     user: game.userId,
     speaker: ChatMessage.getSpeaker({ actor: character }),
     content: await this.createSetActivationMessage(setData, playerId, mpCost),
-    style: CONST.CHAT_MESSAGE_STYLES.OTHER // Changed type to style and TYPES to STYLES
+    style: CONST.CHAT_MESSAGE_STYLES.OTHER
   };
   
   // Create the chat message first to show the set activation
@@ -395,16 +442,18 @@ static async activateTableSet(setData, playerId) {
       }
     }
     
-    // Move the set cards from table to discard - FIXED APPROACH
-    // First, check if the cards exist in the table pile
+    // FIXED APPROACH - Check for duplicate cards
     const cardsToMove = [];
+    const discardCards = new Set(piles.discard.cards.map(c => c.id));
+    
     for (const cardId of setData.cardIds) {
-      if (tablePile.cards.has(cardId)) {
+      // Only move the card if it exists in table pile AND isn't already in discard
+      if (tablePile.cards.has(cardId) && !discardCards.has(cardId)) {
         cardsToMove.push(cardId);
       }
     }
     
-    // Only try to pass cards that exist in the table pile
+    // Only try to pass cards that exist in the table pile and aren't in discard
     if (cardsToMove.length > 0) {
       await tablePile.pass(piles.discard, cardsToMove, { chatNotification: false });
     }
@@ -412,7 +461,14 @@ static async activateTableSet(setData, playerId) {
     // Emit socket message and update UI
     SocketManager.emitSetActivated(setData.type, setData.cardIds);
     UIManager.renderTable();
-        
+    
+    // Verify handlers are still attached
+    if (window.FuAceCards?.EventHandlers) {
+      window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+    } else if (typeof EventHandlers !== 'undefined') {
+      EventHandlers.verifyHandDrawerHandlers();
+    }
+    
     return true;
   } catch (error) {
     console.error("Error activating set:", error);
