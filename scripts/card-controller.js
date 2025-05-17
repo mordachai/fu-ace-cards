@@ -318,7 +318,8 @@ static async playSetToTable(setData, indicator) {
   }
 }
   
-// Clean the table
+// Enhanced cleanTable method to handle true duplicate cards
+
 static async cleanTable() {
   const tablePile = getTablePile();
   if (!tablePile) {
@@ -326,62 +327,83 @@ static async cleanTable() {
     return false;
   }
   
-  const cards = Array.from(tablePile.cards);
-  if (cards.length === 0) {
-    console.log(`${MODULE_ID} | Table is already empty`);
-    return false;
-  }
+  const tableCards = Array.from(tablePile.cards);
+  if (tableCards.length === 0) return false;
   
-  // Group cards by their owner
-  const cardsByOwner = {};
-  
-  for (const card of cards) {
-    const ownerId = card.getFlag(MODULE_ID, 'ownerId');
-    if (!ownerId) {
-      console.warn(`${MODULE_ID} | Card ${card.name} has no owner, will remain on table`);
-      continue;
+  // Collect all existing card IDs across all card stacks
+  const existingCardIds = new Map();
+  game.cards.contents.forEach(pile => {
+    if (pile.id !== tablePile.id) { // Skip the table pile itself
+      Array.from(pile.cards).forEach(card => {
+        existingCardIds.set(card.id, {
+          pileId: pile.id, 
+          pileName: pile.name,
+          cardName: card.name
+        });
+      });
     }
-    
-    if (!cardsByOwner[ownerId]) cardsByOwner[ownerId] = [];
-    cardsByOwner[ownerId].push(card.id);
+  });
+  
+  // Group table cards by status
+  const toMove = []; // Cards that can be moved normally
+  const toPurge = []; // Duplicate cards that need deletion
+  
+  // Check each table card
+  for (const card of tableCards) {
+    if (existingCardIds.has(card.id)) {
+      // This is a duplicate - log it and mark for deletion
+      const existing = existingCardIds.get(card.id);
+      console.warn(`${MODULE_ID} | Found duplicate card: ${card.name} (ID: ${card.id}) already exists in ${existing.pileName}`);
+      toPurge.push(card.id);
+    } else {
+      // Normal card - group by owner for moving
+      const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+      if (ownerId) toMove.push({id: card.id, ownerId});
+    }
   }
   
-  // Process cards for each owner
+  // 1. Delete duplicate cards directly
+  if (toPurge.length > 0) {
+    try {
+      console.log(`${MODULE_ID} | Purging ${toPurge.length} duplicate cards`);
+      await tablePile.deleteEmbeddedDocuments("Card", toPurge);
+    } catch (error) {
+      console.error(`${MODULE_ID} | Error purging duplicates:`, error);
+    }
+  }
+  
+  // 2. Group remaining cards by owner for orderly movement
+  const cardsByOwner = toMove.reduce((groups, card) => {
+    if (!groups[card.ownerId]) groups[card.ownerId] = [];
+    groups[card.ownerId].push(card.id);
+    return groups;
+  }, {});
+  
+  // 3. Process cards for each owner
   for (const [ownerId, cardIds] of Object.entries(cardsByOwner)) {
     try {
-      // Get owner's discard pile
       const ownerPiles = getPlayerPiles(ownerId);
-      
       if (!ownerPiles?.discard) {
-        console.warn(`${MODULE_ID} | No discard pile found for ${game.users.get(ownerId)?.name}`);
+        console.warn(`${MODULE_ID} | No discard pile for ${game.users.get(ownerId)?.name}`);
         continue;
       }
       
-      // Pass the cards to the owner's discard pile
-      await tablePile.pass(ownerPiles.discard, cardIds, { chatNotification: false });
-      console.log(`${MODULE_ID} | Moved ${cardIds.length} cards to ${game.users.get(ownerId)?.name}'s discard pile`);
+      // Move in small batches with delay
+      const BATCH_SIZE = 3;
+      for (let i = 0; i < cardIds.length; i += BATCH_SIZE) {
+        const batch = cardIds.slice(i, i + BATCH_SIZE);
+        await tablePile.pass(ownerPiles.discard, batch, { chatNotification: false });
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     } catch (error) {
-      console.error(`${MODULE_ID} | Error handling cards for player ${ownerId}:`, error);
+      console.error(`${MODULE_ID} | Error moving cards for ${ownerId}:`, error);
     }
   }
   
-  // Clean up tooltips and update UI
-  UIManager.cleanupAllTooltips();
+  // Update UI
   UIManager.renderTable();
   SocketManager.emitCleanTable();
-
-  // Run a comprehensive handler verification
-  if (window.FuAceCards?.EventHandlers) {
-    window.FuAceCards.EventHandlers.cleanupHandDrawer();
-    window.FuAceCards.EventHandlers.setupHandDrawer();
-    window.FuAceCards.EventHandlers.setupButtonHandlers(); // Re-setup ALL buttons
-  } else if (typeof EventHandlers !== 'undefined') {
-    EventHandlers.cleanupHandDrawer();
-    EventHandlers.setupHandDrawer();
-    EventHandlers.setupButtonHandlers(); // Re-setup ALL buttons
-  }
   
-  console.log(`${MODULE_ID} | Table cleaned successfully`);
   return true;
 }
   

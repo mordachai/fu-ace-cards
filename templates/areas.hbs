@@ -9,16 +9,25 @@
       {{/if}}
     {{/if}}
   </div>
-  {{!-- Set info bar --}}
-  <div class="fu-set-info-bar" id="fu-table-info-bar"></div>
+  
+  {{!-- Separated info bar panel --}}
+  <div class="fu-set-info-panel" id="fu-table-info-panel">
+    <div class="fu-set-info-bar" id="fu-table-info-bar"></div>
+  </div>
 </div>
 
 {{!-- Only show hand area to non-GM players who have a hand --}}
 {{#unless isGM}}
   {{#if hasHandCards}}
     <div id="fu-hand-area" class="fu-area">
-      {{!-- Set info bar --}}
-      <div class="fu-set-info-bar" id="fu-hand-info-bar"></div>
+      {{!-- Add a clickable drawer handle --}}
+      <div class="fu-drawer-handle" title="Click to keep open/close"></div>
+      
+      {{!-- Separated info bar panel --}}
+      <div class="fu-set-info-panel" id="fu-hand-info-panel">
+        <div class="fu-set-info-bar" id="fu-hand-info-bar"></div>
+      </div>
+      
       <div id="fu-hand-cards" class="fu-hud-cards"></div>
       <div class="fu-hud-controls">
         <button id="fu-draw-card" class="fu-button"><i class="fa-solid fa-cards-blank" title="Draw Card"></i></button>
