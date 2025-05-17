@@ -117,6 +117,25 @@ export class EventHandlers {
       btnManualReset._hasEventHandlers = false;
       };
     }
+
+    // Button handler: Shuffle Deck
+    const btnShuffle = document.getElementById('fu-shuffle-deck');
+    if (btnShuffle) {
+      // Clean up existing handler if present
+      if (btnShuffle._shuffleDeck) {
+        btnShuffle.removeEventListener('click', btnShuffle._shuffleDeck);
+      }
+      
+      const shuffleDeck = () => this.handleShuffleDeck();
+      btnShuffle.addEventListener('click', shuffleDeck);
+      btnShuffle._shuffleDeck = shuffleDeck;
+      btnShuffle._hasEventHandlers = true;
+      
+      btnShuffle._cleanup = () => {
+        btnShuffle.removeEventListener('click', shuffleDeck);
+        btnShuffle._hasEventHandlers = false;
+      };
+    }
     
     console.log(`${MODULE_ID} | Button handlers setup complete`);
   }
@@ -246,6 +265,27 @@ export class EventHandlers {
       if (isInTableArea) {
         clearHighlights();
       }
+    }
+  }
+
+  // Handle shuffle deck button click
+  static async handleShuffleDeck() {
+    // Confirm before shuffling
+    const confirmed = await Dialog.confirm({
+      title: "Shuffle Deck",
+      content: `<p>Are you sure you want to reset and shuffle your deck? All your cards will be collected from the table and hand, then shuffled back into your deck.</p>`,
+      yes: () => true,
+      no: () => false,
+      defaultYes: false
+    });
+    
+    if (!confirmed) return;
+    
+    // Call the CardController method
+    if (window.FuAceCards?.CardController) {
+      await window.FuAceCards.CardController.shuffleDeck();
+    } else if (typeof CardController !== 'undefined') {
+      await CardController.shuffleDeck();
     }
   }
   
