@@ -90,6 +90,65 @@ export class EventHandlers {
       btnMulligan.addEventListener('click', performMulligan);
       btnMulligan._cleanup = () => btnMulligan.removeEventListener('click', performMulligan);
     }
+
+    const btnManualReset = document.getElementById('fu-manual-reset');
+    if (btnManualReset) {
+      const resetHandler = () => this.manualReset();
+      btnManualReset.addEventListener('click', resetHandler);
+      btnManualReset._cleanup = () => btnManualReset.removeEventListener('click', resetHandler);
+    }
+    
+  }
+
+  // Add to event-handlers.js
+  static async manualReset() {
+    // Create a confirmation dialog
+    const confirm = await Dialog.confirm({
+      title: "Confirm Manual Reset",
+      content: `<p>This will reset your hand and the table. Use only if cards are stuck or duplicated.</p>
+                <p><strong>Warning:</strong> This discards your current hand!</p>`,
+      yes: () => true,
+      no: () => false,
+      defaultYes: false
+    });
+    
+    if (!confirm) return;
+    
+    ui.notifications.info("Resetting card areas...");
+    
+    // Clean table first
+    await CardController.cleanTable();
+    
+    // Get player piles
+    const piles = getCurrentPlayerPiles();
+    if (!piles) {
+      ui.notifications.warn("No card piles found for your character");
+      return;
+    }
+    
+    // Reset the hand to discard
+    if (piles.hand && piles.hand.cards.size > 0) {
+      try {
+        const handCardIds = Array.from(piles.hand.cards).map(c => c.id);
+        await piles.hand.pass(piles.discard, handCardIds, { chatNotification: false });
+      } catch (error) {
+        console.error("Error resetting hand:", error);
+      }
+    }
+    
+    // Draw fresh hand
+    if (piles.deck && piles.hand) {
+      await piles.deck.deal([piles.hand], 5, { how: CONST.CARD_DRAW_MODES.RANDOM, chatNotification: false });
+    }
+    
+    // Render UI
+    UIManager.renderTable();
+    UIManager.renderHand();
+    
+    // Verify handlers
+    this.verifyHandDrawerHandlers();
+    
+    ui.notifications.info("Card areas have been reset");
   }
   
   // Setup handlers for tooltips
@@ -857,7 +916,7 @@ export class EventHandlers {
         if (endcap.length) {
           const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
                                   damageType.charAt(0).toUpperCase() + damageType.slice(1);
-          endcap.attr('data-tooltip', `${damageTypeDisplay} Damage`);
+          endcap.attr('data-tooltip', `${damageTypeDisplay} Damages`);
           
           // Use the correct icon class based on damage type
           const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;

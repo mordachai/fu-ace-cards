@@ -11,7 +11,7 @@ import { DamageIntegration } from './damage-integration.js';
 import { HealingIntegration } from './healing-integration.js';
 
 export class CardController {
-  
+
 // Draw a card from deck to hand
 static async drawCard() {
   const piles = PileManager.getCurrentPlayerPiles();
@@ -125,8 +125,24 @@ static async playCardToTable(card) {
     return false;
   }
   
+  // Simple check - make sure card is in hand before proceeding
+  if (!piles.hand.cards.has(card.id)) {
+    ui.notifications.warn("Card not found in hand");
+    return false;
+  }
+  
   try {
     await piles.hand.pass(tablePile, [card.id], { chatNotification: false });
+    
+    // Double-check the card moved correctly
+    if (piles.hand.cards.has(card.id)) {
+      console.warn(`${MODULE_ID} | Card remained in hand after pass operation`);
+    }
+    
+    if (!tablePile.cards.has(card.id)) {
+      console.warn(`${MODULE_ID} | Card didn't arrive on table after pass operation`);
+      return false;
+    }
     
     // Set owner flag on the card AFTER successful pass
     const tableCard = tablePile.cards.get(card.id);
@@ -159,7 +175,7 @@ static async playCardToTable(card) {
     return true;
   } catch (error) {
     console.error("Error playing card:", error);
-    UIManager.renderHand(); // Re-render to ensure UI is in sync
+    UIManager.renderHand();
     return false;
   }
 }
