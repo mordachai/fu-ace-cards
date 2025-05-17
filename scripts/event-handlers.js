@@ -234,55 +234,97 @@ export class EventHandlers {
   
   // Setup drawer behavior for hand area
   static setupHandDrawer() {
-    const handArea = document.getElementById('fu-hand-area');
-    if (!handArea) return;
-    
-    // Clean up existing event handlers if they exist
-    this.cleanupHandDrawer();
-    
-    // Track timeout for cleanup
-    let drawerTimeout;
-    
-    const openDrawer = () => {
-      console.log(`${MODULE_ID} | Hand drawer: open`);
-      clearTimeout(drawerTimeout);
-      handArea.classList.add('open');
-    };
-    
-    const closeDrawer = () => {
-      console.log(`${MODULE_ID} | Hand drawer: close pending`);
-      drawerTimeout = setTimeout(() => {
-        handArea.classList.remove('open');
-        console.log(`${MODULE_ID} | Hand drawer: closed`);
-      }, 1000);
-    };
-    
-    // Store the event handlers directly on the element for easier verification
-    handArea._openDrawer = openDrawer;
-    handArea._closeDrawer = closeDrawer;
-    handArea._drawerTimeout = drawerTimeout;
-    
-    // Add event listeners
-    handArea.addEventListener('mouseenter', openDrawer);
-    handArea.addEventListener('mouseleave', closeDrawer);
-    
-    // Store flag to track if events are attached
-    handArea._hasEventHandlers = true;
-    
-    console.log(`${MODULE_ID} | Hand drawer event handlers attached`);
-    
-    // Store cleanup function for later
-    handArea._cleanupDrawer = () => {
-      this.cleanupHandDrawer();
-    };
+  const handArea = document.getElementById('fu-hand-area');
+  if (!handArea) return;
+  
+  // Clean up existing event handlers
+  this.cleanupHandDrawer();
+  
+  // Create handle element if it doesn't exist
+  let handleElement = handArea.querySelector('.fu-drawer-handle');
+  if (!handleElement) {
+    handleElement = document.createElement('div');
+    handleElement.className = 'fu-drawer-handle';
+    handArea.prepend(handleElement);
   }
   
-  // Clean up event handlers
+  // Track state
+  handArea._isLocked = false;
+  
+  // Toggle function - keeps drawer open/closed until clicked again
+  const toggleDrawer = (event) => {
+    // Prevent event from bubbling
+    event.stopPropagation();
+    
+    // Toggle locked state
+    handArea._isLocked = !handArea._isLocked;
+    
+    // Toggle drawer based on locked state
+    if (handArea._isLocked) {
+      handArea.classList.add('open', 'locked');
+    } else {
+      handArea.classList.remove('open', 'locked');
+    }
+    
+    console.log(`${MODULE_ID} | Hand drawer: ${handArea._isLocked ? 'locked open' : 'closed'}`);
+  };
+  
+  // Hover functions still work when not locked
+  const openDrawer = () => {
+    if (!handArea._isLocked) {
+      console.log(`${MODULE_ID} | Hand drawer: hover open`);
+      clearTimeout(handArea._drawerTimeout);
+      handArea.classList.add('open');
+    }
+  };
+  
+  const closeDrawer = () => {
+    if (!handArea._isLocked) {
+      console.log(`${MODULE_ID} | Hand drawer: hover close pending`);
+      handArea._drawerTimeout = setTimeout(() => {
+        handArea.classList.remove('open');
+        console.log(`${MODULE_ID} | Hand drawer: hover closed`);
+      }, 1000);
+    }
+  };
+  
+  // Store handlers on element for cleanup
+  handleElement._toggleDrawer = toggleDrawer;
+  handArea._openDrawer = openDrawer;
+  handArea._closeDrawer = closeDrawer;
+  
+  // Add click event to handle
+  handleElement.addEventListener('click', toggleDrawer);
+  
+  // Add hover events to drawer (only work when not locked)
+  handArea.addEventListener('mouseenter', openDrawer);
+  handArea.addEventListener('mouseleave', closeDrawer);
+  
+  // Set flag for event tracking
+  handArea._hasEventHandlers = true;
+  
+  console.log(`${MODULE_ID} | Hand drawer event handlers attached`);
+  
+  // Store cleanup function
+  handArea._cleanupDrawer = () => {
+    this.cleanupHandDrawer();
+  };
+}
+
+  // Updated cleanupHandDrawer method
   static cleanupHandDrawer() {
     const handArea = document.getElementById('fu-hand-area');
     if (!handArea) return;
     
-    // Clean up existing event handlers if they exist
+    // Get handle element
+    const handleElement = handArea.querySelector('.fu-drawer-handle');
+    
+    // Clean up click handler on handle
+    if (handleElement && handleElement._toggleDrawer) {
+      handleElement.removeEventListener('click', handleElement._toggleDrawer);
+    }
+    
+    // Clean up hover handlers
     if (handArea._openDrawer) {
       handArea.removeEventListener('mouseenter', handArea._openDrawer);
     }
@@ -294,6 +336,7 @@ export class EventHandlers {
     
     // Reset flags
     handArea._hasEventHandlers = false;
+    handArea._isLocked = false;
     
     console.log(`${MODULE_ID} | Hand drawer event handlers removed`);
   }
