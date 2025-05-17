@@ -37,8 +37,8 @@ export class HooksManager {
     return true;
   }
   
-    // Handler for init hook
-    static onInit() {
+  // Handler for init hook
+  static onInit() {
     console.log(`${MODULE_ID} | Initializing module`);
     
     // Register module settings FIRST
@@ -62,12 +62,15 @@ export class HooksManager {
     Handlebars.registerHelper('eq', function(a, b) {
         return a === b;
     });
-    }
+  }
   
-  // Handler for ready hook
+  // Handler for ready hook - MODIFIED
   static async onReady() {
-  console.log(`${MODULE_ID} | Module ready`);
-  
+    console.log(`${MODULE_ID} | Module ready`);
+
+    // Register UI hooks to maintain handlers
+    this.registerUIHooks();
+    
     try {
       // Initialize managers
       SocketManager.initialize();
@@ -83,7 +86,7 @@ export class HooksManager {
       // Setup chat message handlers
       EventHandlers.setupChatMessageHandlers();
       
-      // Setup hand drawer behavior
+      // Setup hand drawer behavior - Always ensure this happens
       EventHandlers.setupHandDrawer();
       
       // Setup healing and status effect handlers
@@ -98,6 +101,9 @@ export class HooksManager {
         UIManager.renderTable();
         UIManager.renderHand();
         
+        // Make sure hand area is fully functional - ADDED
+        this.verifyHandAreaFunctionality();
+        
         console.log(`${MODULE_ID} | Ready and UI rendered`);
       }, 100);
     } catch (error) {
@@ -105,7 +111,18 @@ export class HooksManager {
     }
   }
   
-  // Render UI areas by loading templates
+  // New utility method to verify hand area functionality - ADDED
+  static verifyHandAreaFunctionality() {
+    // Try to use the global API if available
+    if (window.FuAceCards?.EventHandlers?.verifyHandDrawerHandlers) {
+      window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+    } else if (typeof EventHandlers !== 'undefined') {
+      // Direct reference if global API isn't available yet
+      EventHandlers.verifyHandDrawerHandlers();
+    }
+  }
+  
+  // Render UI areas by loading templates - MODIFIED
   static async renderUIAreas() {
     const user = game.user;
     
@@ -127,10 +144,41 @@ export class HooksManager {
     }
     
     document.body.insertAdjacentHTML('beforeend', html);
+    
+    // After rendering UI areas, ensure event handlers are set up - ADDED
+    // This is important as this is when the DOM elements are first created
+    setTimeout(() => {
+      this.verifyHandAreaFunctionality();
+    }, 100);
+    
     return true;
   }
+
+  static registerUIHooks() {
+  // Key UI events that might affect our elements
+  Hooks.on('renderSidebarTab', () => this.ensureHandlersAttached());
+  Hooks.on('renderChatMessage', () => this.ensureHandlersAttached());
+  Hooks.on('renderApplication', () => this.ensureHandlersAttached());
+  Hooks.on('renderDialog', () => this.ensureHandlersAttached());
   
-  // Handler for updateCards hook
+  // Critical Foundry events
+  Hooks.on('updateJournalEntry', () => this.ensureHandlersAttached());
+  Hooks.on('ready', () => this.ensureHandlersAttached());
+  Hooks.on('canvasReady', () => this.ensureHandlersAttached());
+  
+  console.log(`${MODULE_ID} | UI hooks registered for handler preservation`);
+  }
+
+static ensureHandlersAttached() {
+  // Only verify if module is initialized
+  if (window.FuAceCards?.EventHandlers) {
+    window.FuAceCards.EventHandlers.verifyAllHandlers();
+  } else if (typeof EventHandlers !== 'undefined') {
+    EventHandlers.verifyAllHandlers();
+  }
+}
+  
+  // Handler for updateCards hook - MODIFIED
   static onUpdateCards(cards, change, options, userId) {
     // Always clean up tooltips when cards change
     UIManager.cleanupAllTooltips();
@@ -143,23 +191,35 @@ export class HooksManager {
         (playerPiles && (cards === playerPiles.deck || cards === playerPiles.hand || cards === playerPiles.discard))) {
       UIManager.renderTable();
       UIManager.renderHand();
+      
+      // Verify hand area functionality after card updates - ADDED
+      this.verifyHandAreaFunctionality();
     }
   }
   
-  // Handler for updateActor hook
+  // Handler for updateActor hook - MODIFIED
   static onUpdateActor(actor, changes) {
     // If MP changed and this is our character
     if (actor.id === game.user.character?.id && 
         changes.system?.resources?.mp) {
       // Re-render hand to update set availability
       UIManager.renderHand();
+      
+      // Verify hand area functionality - ADDED
+      this.verifyHandAreaFunctionality();
     }
   }
   
-  // Handler for canvasReady hook
+  // Handler for canvasReady hook - MODIFIED
   static onCanvasReady() {
     // Clean up tooltips when the scene changes
     UIManager.cleanupAllTooltips();
+    
+    // Ensure hand area functionality after scene changes - ADDED
+    // Scene changes can sometimes cause event handlers to get detached
+    setTimeout(() => {
+      this.verifyHandAreaFunctionality();
+    }, 500); // Longer timeout for scene changes which can be resource-intensive
   }
   
   // Handler for renderChatMessage hook
@@ -182,59 +242,71 @@ export class HooksManager {
     console.log(`${MODULE_ID} | Module cleanup completed`);
   }
   
-  // Expose global API for module
+  // Expose global API for module - MODIFIED
   static exposeGlobalAPI() {
-  // Import necessary functions/objects
-  import('./ui-enhancements.js').then(uiModule => {
-    import('./set-detector.js').then(detectorModule => {
-      import('./damage-integration.js').then(damageModule => {
-        import('./healing-integration.js').then(healingModule => {
-          import('./dialog-manager.js').then(dialogModule => {
-            // Create global access point
-            window.FuAceCards = {
-              // Managers
-              UIManager,
-              CardController,
-              PileManager,
-              SocketManager,
-              EventHandlers,
-              DialogManager: dialogModule.DialogManager, // Add this
+    // Import necessary functions/objects
+    import('./ui-enhancements.js').then(uiModule => {
+      import('./set-detector.js').then(detectorModule => {
+        import('./damage-integration.js').then(damageModule => {
+          import('./healing-integration.js').then(healingModule => {
+            import('./dialog-manager.js').then(dialogModule => {
+              // Create global access point
+              window.FuAceCards = {
+                // Managers
+                UIManager,
+                CardController,
+                PileManager,
+                SocketManager,
+                EventHandlers,
+                DialogManager: dialogModule.DialogManager,
+                
+                // Convenience methods
+                renderHand: UIManager.renderHand.bind(UIManager),
+                renderTable: UIManager.renderTable.bind(UIManager),
+                showHandArea: UIManager.showHandArea.bind(UIManager),
+                getCurrentPlayerPiles: PileManager.getCurrentPlayerPiles.bind(PileManager),
+                getTablePile: PileManager.getTablePile.bind(PileManager),
+                discardCard: CardController.discardCard.bind(CardController),
+                
+                // Event handlers
+                handleHandSetClick: EventHandlers.handleHandSetClick.bind(EventHandlers),
+                handleTableSetClick: EventHandlers.handleTableSetClick.bind(EventHandlers),
+                
+                // UI enhancement functions
+                updateSetInfoBar: uiModule.updateSetInfoBar,
+                showSetTooltip: uiModule.showSetTooltip,
+                hideSetTooltip: uiModule.hideSetTooltip,
+                clearHighlights: uiModule.clearHighlights,
+                
+                // Set detection
+                SET_NAMES: detectorModule.SET_NAMES,
+                getCardValue: detectorModule.getCardValue,
+                
+                // Damage and Healing integration
+                DamageIntegration: damageModule.DamageIntegration,
+                HealingIntegration: healingModule.HealingIntegration,
+                
+                // Add new hand area functionality methods - ADDED
+                ensureHandFunctionality: () => EventHandlers.verifyHandDrawerHandlers(),
+                resetHandDrawer: () => {
+                  EventHandlers.cleanupHandDrawer();
+                  EventHandlers.setupHandDrawer();
+                },
+                
+                // Module ID for reference
+                MODULE_ID
+              };
               
-              // Convenience methods
-              renderHand: UIManager.renderHand.bind(UIManager),
-              renderTable: UIManager.renderTable.bind(UIManager),
-              showHandArea: UIManager.showHandArea.bind(UIManager),
-              getCurrentPlayerPiles: PileManager.getCurrentPlayerPiles.bind(PileManager),
-              getTablePile: PileManager.getTablePile.bind(PileManager),
-              discardCard: CardController.discardCard.bind(CardController),
+              console.log(`${MODULE_ID} | Global API exposed successfully`);
               
-              // Event handlers
-              handleHandSetClick: EventHandlers.handleHandSetClick.bind(EventHandlers),
-              handleTableSetClick: EventHandlers.handleTableSetClick.bind(EventHandlers),
-              
-              // UI enhancement functions
-              updateSetInfoBar: uiModule.updateSetInfoBar,
-              showSetTooltip: uiModule.showSetTooltip,
-              hideSetTooltip: uiModule.hideSetTooltip,
-              clearHighlights: uiModule.clearHighlights,
-              
-              // Set detection
-              SET_NAMES: detectorModule.SET_NAMES,
-              getCardValue: detectorModule.getCardValue,
-              
-              // Damage and Healing integration
-              DamageIntegration: damageModule.DamageIntegration,
-              HealingIntegration: healingModule.HealingIntegration,
-              
-              // Module ID for reference
-              MODULE_ID
-            };
-            
-            console.log(`${MODULE_ID} | Global API exposed successfully`);
+              // Verify hand area functionality after API is exposed - ADDED
+              setTimeout(() => {
+                EventHandlers.verifyHandDrawerHandlers();
+              }, 200);
+            });
           });
         });
       });
     });
-  });
   }
 }

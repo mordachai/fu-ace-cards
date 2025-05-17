@@ -29,13 +29,15 @@
       <summary class="collapsible-description align-center">Cards</summary>
         <div class="fu-chat-cards-container">
           {{#each cards}}
-            <img src="{{this.img}}" 
-                class="fu-chat-card-img {{#if ../isDoubleTrouble}}fu-card-clickable{{/if}}" 
-                {{#if @index}}style="margin-left: -40px;"{{/if}} 
-                title="{{this.name}}"
-                data-card-id="{{this.id}}"
-                data-card-suit="{{this.suit}}"
-                data-card-index="{{@index}}">
+          <img src="{{this.img}}" 
+              class="fu-chat-card-img {{#if ../isDoubleTrouble}}fu-card-clickable{{/if}} {{#if ../isMagicPair}}fu-card-clickable{{/if}}" 
+              {{#if @index}}style="margin-left: -40px;"{{/if}} 
+              title="{{this.name}}"
+              data-card-id="{{this.id}}"
+              data-card-suit="{{this.suit}}"
+              {{#if this.isJoker}}data-is-joker="true"{{/if}}
+              {{#if this.phantomSuit}}data-phantom-suit="{{this.phantomSuit}}"{{/if}}
+              data-card-index="{{@index}}">
           {{/each}}
         </div>
       {{#if debugInfo}}
@@ -112,6 +114,36 @@
         <i class="icon fas fa-heart-crack"></i>
       </span>
     </a>
+  </div>
+  {{/if}}
+
+  {{#if isMagicPair}}
+  <div class="weapon-attack-check" data-set-type="magic-pair">
+    <header class="title-desc chat-header flexrow desc">
+      <h2 style="flex-grow:4">Free Weapon Attack Damage</h2>
+    </header>
+    
+    <div class="detail-desc flex-group-center flexrow desc">
+      <a>
+        <label class="damageType physical grid grid-3col">
+          <div class="startcap"></div>
+          <div id="weapon-damage-text" style="white-space: nowrap; min-width: 80px; text-align: center;">Damage?</div>
+          <div class="endcap" data-tooltip="Select a card to set damage type">
+            <i class="fua fu-physical"></i>
+          </div>
+        </label>
+      </a>
+    </div>
+    
+    <div class="toggle-section weapon-attack-results">
+      <div class="flexrow gap-5">
+        <div class="chat-desc flex-group-center desc flex2">
+          <p class="notes">
+            Select a card to apply its suit as the damage type.
+          </p>
+        </div>
+      </div>
+    </div>
   </div>
   {{/if}}
 

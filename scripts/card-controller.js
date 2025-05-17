@@ -11,12 +11,11 @@ import { DamageIntegration } from './damage-integration.js';
 import { HealingIntegration } from './healing-integration.js';
 
 export class CardController {
-  
+
 // Draw a card from deck to hand
 static async drawCard() {
   const piles = PileManager.getCurrentPlayerPiles();
   
-  // Check if deck exists
   if (!piles?.deck) {
     console.error(`${MODULE_ID} | Cannot draw: No deck assigned`);
     return false;
@@ -73,10 +72,22 @@ static async drawCard() {
 
   // If we reach here, we have available cards to draw
   try {
-    // Draw one card to hand
-    await piles.deck.deal([piles.hand], 1, { 
-      how: CONST.CARD_DRAW_MODES.RANDOM, 
-      chatNotification: false 
+    // Select a random card to draw instead of using deal
+    const cardToDraw = availableCards[Math.floor(Math.random() * availableCards.length)];
+    
+    // Check if this card already exists in hand
+    const existingInHand = Array.from(piles.hand.cards).find(c => c.id === cardToDraw.id);
+    if (existingInHand) {
+      console.error(`${MODULE_ID} | Card ${cardToDraw.id} already exists in hand!`);
+      // Mark it as drawn in the deck to prevent future attempts
+      await cardToDraw.update({drawn: true});
+      // Try drawing again - different card
+      return this.drawCard();
+    }
+    
+    // Use pass instead of deal to move the specific card
+    await piles.deck.pass(piles.hand, [cardToDraw.id], {
+      chatNotification: false
     });
     
     // Update UI
@@ -84,6 +95,20 @@ static async drawCard() {
     return true;
   } catch (error) {
     console.error(`${MODULE_ID} | Error drawing card:`, error);
+    // Log additional diagnostic info
+    console.log(`${MODULE_ID} | Draw operation failed. Checking card locations...`);
+    try {
+      const cardStates = game.cards.contents.flatMap(pile => 
+        Array.from(pile.cards).map(card => ({
+          id: card.id,
+          pile: pile.name,
+          drawn: card.drawn
+        }))
+      );
+      console.log(`${MODULE_ID} | Card states:`, cardStates);
+    } catch (e) {
+      console.error("Failed to log card diagnostics:", e);
+    }
     return false;
   }
 }
@@ -116,6 +141,47 @@ static async discardCard(cardId) {
   }
 }
 
+static async returnCardToHand(cardId) {
+  const tablePile = getTablePile();
+  const piles = getCurrentPlayerPiles();
+  
+  if (!tablePile || !piles?.hand) {
+    ui.notifications.warn("Cannot return card: piles not found");
+    return false;
+  }
+  
+  // Find the card on the table
+  const card = tablePile.cards.get(cardId);
+  if (!card) {
+    console.error(`${MODULE_ID} | Card ${cardId} not found on table`);
+    return false;
+  }
+  
+  // Check if this card belongs to the current player
+  const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+  if (ownerId !== game.userId) {
+    ui.notifications.warn("You can only return your own cards to hand");
+    return false;
+  }
+  
+  try {
+    // Pass the card from table to hand
+    await tablePile.pass(piles.hand, [cardId], { chatNotification: false });
+    
+    // Update UI
+    UIManager.renderTable();
+    UIManager.renderHand();
+    
+    // Send socket message to notify other players
+    SocketManager.emitCardReturnedToHand(cardId);
+    
+    return true;
+  } catch (error) {
+    console.error("Error returning card to hand:", error);
+    return false;
+  }
+}
+
 // Play a card from hand to table
 static async playCardToTable(card) {
   const piles = getCurrentPlayerPiles();
@@ -125,7 +191,31 @@ static async playCardToTable(card) {
     return false;
   }
   
+  // Simple check - make sure card is in hand before proceeding
+  if (!piles.hand.cards.has(card.id)) {
+    ui.notifications.warn("Card not found in hand");
+    return false;
+  }
+  
   try {
+    // Before passing the card, try to find its original in deck and mark as drawn
+    if (piles.deck) {
+      const deckCards = Array.from(piles.deck.cards);
+      // Find all cards with the same name as the one we're playing
+      const sameNameCards = deckCards.filter(c => 
+        c.name === card.name && 
+        c.suit === card.suit && 
+        c.value === card.value && 
+        !c.drawn
+      );
+      
+      if (sameNameCards.length > 0) {
+        // Mark the first one as drawn
+        await sameNameCards[0].update({drawn: true});
+      }
+    }
+
+    // Now pass the card to the table
     await piles.hand.pass(tablePile, [card.id], { chatNotification: false });
     
     // Set owner flag on the card AFTER successful pass
@@ -148,10 +238,18 @@ static async playCardToTable(card) {
     
     UIManager.renderHand();
     UIManager.renderTable();
+    
+    // Verify handlers are still attached
+    if (window.FuAceCards?.EventHandlers) {
+      window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+    } else if (typeof EventHandlers !== 'undefined') {
+      EventHandlers.verifyHandDrawerHandlers();
+    }
+    
     return true;
   } catch (error) {
     console.error("Error playing card:", error);
-    UIManager.renderHand(); // Re-render to ensure UI is in sync
+    UIManager.renderHand();
     return false;
   }
 }
@@ -244,6 +342,13 @@ static async playSetToTable(setData, indicator) {
     const setName = SET_NAMES[setType] || setType.replace('-', ' ').split(' ').map(word => 
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
+
+        // Verify handlers are still attached
+    if (window.FuAceCards?.EventHandlers) {
+      window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+    } else if (typeof EventHandlers !== 'undefined') {
+      EventHandlers.verifyHandDrawerHandlers();
+    }
     
     return true;
     
@@ -254,7 +359,8 @@ static async playSetToTable(setData, indicator) {
   }
 }
   
-// Clean the table
+// Enhanced cleanTable method to handle true duplicate cards
+
 static async cleanTable() {
   const tablePile = getTablePile();
   if (!tablePile) {
@@ -262,72 +368,83 @@ static async cleanTable() {
     return false;
   }
   
-  const cards = Array.from(tablePile.cards);
-  if (cards.length === 0) {
-    console.log(`${MODULE_ID} | Table is already empty`);
-    return false;
-  }
+  const tableCards = Array.from(tablePile.cards);
+  if (tableCards.length === 0) return false;
   
-  // Group cards by their owner
-  const cardsByOwner = {};
-  
-  for (const card of cards) {
-    const ownerId = card.getFlag(MODULE_ID, 'ownerId');
-    if (!ownerId) {
-      console.warn(`${MODULE_ID} | Card ${card.name} has no owner, will remain on table`);
-      continue;
+  // Collect all existing card IDs across all card stacks
+  const existingCardIds = new Map();
+  game.cards.contents.forEach(pile => {
+    if (pile.id !== tablePile.id) { // Skip the table pile itself
+      Array.from(pile.cards).forEach(card => {
+        existingCardIds.set(card.id, {
+          pileId: pile.id, 
+          pileName: pile.name,
+          cardName: card.name
+        });
+      });
     }
-    
-    if (!cardsByOwner[ownerId]) cardsByOwner[ownerId] = [];
-    cardsByOwner[ownerId].push(card.id);
+  });
+  
+  // Group table cards by status
+  const toMove = []; // Cards that can be moved normally
+  const toPurge = []; // Duplicate cards that need deletion
+  
+  // Check each table card
+  for (const card of tableCards) {
+    if (existingCardIds.has(card.id)) {
+      // This is a duplicate - log it and mark for deletion
+      const existing = existingCardIds.get(card.id);
+      console.warn(`${MODULE_ID} | Found duplicate card: ${card.name} (ID: ${card.id}) already exists in ${existing.pileName}`);
+      toPurge.push(card.id);
+    } else {
+      // Normal card - group by owner for moving
+      const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+      if (ownerId) toMove.push({id: card.id, ownerId});
+    }
   }
   
-  // Process cards for each owner
+  // 1. Delete duplicate cards directly
+  if (toPurge.length > 0) {
+    try {
+      console.log(`${MODULE_ID} | Purging ${toPurge.length} duplicate cards`);
+      await tablePile.deleteEmbeddedDocuments("Card", toPurge);
+    } catch (error) {
+      console.error(`${MODULE_ID} | Error purging duplicates:`, error);
+    }
+  }
+  
+  // 2. Group remaining cards by owner for orderly movement
+  const cardsByOwner = toMove.reduce((groups, card) => {
+    if (!groups[card.ownerId]) groups[card.ownerId] = [];
+    groups[card.ownerId].push(card.id);
+    return groups;
+  }, {});
+  
+  // 3. Process cards for each owner
   for (const [ownerId, cardIds] of Object.entries(cardsByOwner)) {
     try {
-      // Get owner's discard pile
       const ownerPiles = getPlayerPiles(ownerId);
-      
       if (!ownerPiles?.discard) {
-        console.warn(`${MODULE_ID} | No discard pile found for ${game.users.get(ownerId)?.name}`);
+        console.warn(`${MODULE_ID} | No discard pile for ${game.users.get(ownerId)?.name}`);
         continue;
       }
       
-      // Pass the cards to the owner's discard pile
-      await tablePile.pass(ownerPiles.discard, cardIds, { chatNotification: false });
-      console.log(`${MODULE_ID} | Moved ${cardIds.length} cards to ${game.users.get(ownerId)?.name}'s discard pile`);
+      // Move in small batches with delay
+      const BATCH_SIZE = 3;
+      for (let i = 0; i < cardIds.length; i += BATCH_SIZE) {
+        const batch = cardIds.slice(i, i + BATCH_SIZE);
+        await tablePile.pass(ownerPiles.discard, batch, { chatNotification: false });
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
     } catch (error) {
-      console.error(`${MODULE_ID} | Error handling cards for player ${ownerId}:`, error);
+      console.error(`${MODULE_ID} | Error moving cards for ${ownerId}:`, error);
     }
   }
   
-  // Clean up tooltips and update UI
-  UIManager.cleanupAllTooltips();
+  // Update UI
   UIManager.renderTable();
   SocketManager.emitCleanTable();
   
-  console.log(`${MODULE_ID} | Table cleaned successfully`);
-  return true;
-}
-  
-// Reset hand
-static async resetHand() {
-  const piles = getCurrentPlayerPiles();
-  if (!piles?.hand) {
-    return false;
-  }
-  
-  const ids = piles.hand.cards.map(c => c.id);
-  if (!ids.length) {
-    return false;
-  }
-  
-  await piles.hand.pass(piles.discard, ids, { chatNotification: false });
-  
-  // Clean up tooltips when hand is reset
-  UIManager.cleanupAllTooltips();
-  
-  UIManager.renderHand();
   return true;
 }
   
@@ -348,7 +465,7 @@ static async activateTableSet(setData, playerId) {
     user: game.userId,
     speaker: ChatMessage.getSpeaker({ actor: character }),
     content: await this.createSetActivationMessage(setData, playerId, mpCost),
-    type: CONST.CHAT_MESSAGE_TYPES.OTHER
+    style: CONST.CHAT_MESSAGE_STYLES.OTHER
   };
   
   // Create the chat message first to show the set activation
@@ -395,16 +512,18 @@ static async activateTableSet(setData, playerId) {
       }
     }
     
-    // Move the set cards from table to discard - FIXED APPROACH
-    // First, check if the cards exist in the table pile
+    // FIXED APPROACH - Check for duplicate cards
     const cardsToMove = [];
+    const discardCards = new Set(piles.discard.cards.map(c => c.id));
+    
     for (const cardId of setData.cardIds) {
-      if (tablePile.cards.has(cardId)) {
+      // Only move the card if it exists in table pile AND isn't already in discard
+      if (tablePile.cards.has(cardId) && !discardCards.has(cardId)) {
         cardsToMove.push(cardId);
       }
     }
     
-    // Only try to pass cards that exist in the table pile
+    // Only try to pass cards that exist in the table pile and aren't in discard
     if (cardsToMove.length > 0) {
       await tablePile.pass(piles.discard, cardsToMove, { chatNotification: false });
     }
@@ -413,13 +532,12 @@ static async activateTableSet(setData, playerId) {
     SocketManager.emitSetActivated(setData.type, setData.cardIds);
     UIManager.renderTable();
     
-    // // Apply healing/status effects if applicable
-    // if (isHealingSet && character) {
-    //   // Pause briefly to let the chat message render
-    //   setTimeout(async () => {
-    //     await HealingIntegration.applySetEffect(setData, character, targets);
-    //   }, 1000);
-    // }
+    // Verify handlers are still attached
+    if (window.FuAceCards?.EventHandlers) {
+      window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
+    } else if (typeof EventHandlers !== 'undefined') {
+      EventHandlers.verifyHandDrawerHandlers();
+    }
     
     return true;
   } catch (error) {
@@ -428,7 +546,6 @@ static async activateTableSet(setData, playerId) {
     return false;
   }
 }
-
 
 static async createSetActivationMessage(setData, playerId, mpCost) {
   // Get description data
@@ -444,17 +561,41 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
 
   // Add flag for sets that need damage type selection
   const isDoubleTrouble = setData.type === 'double-trouble';
+  const isMagicPair = setData.type === 'magic-pair';
   
   // Determine if this set targets multiple enemies or is single-target
-  const isMultiTarget = ['jackpot', 'magic-flush', 'blinding-flush', 'full-status', 'triple-support', 'forbidden-monarch'].includes(setData.type);
+  const isMultiTarget = ['jackpot', 'magic-flush', 'blinding-flush', 'full-status', 'triple-support', 'forbidden-monarch','double-trouble'].includes(setData.type);
   
   // Get suit information for each card
-  const cardsWithSuits = setData.cards.map(card => ({
+  const cardsWithSuits = setData.cards.map(card => {
+    const isJoker = card.name.toLowerCase().includes('joker') || card.getFlag(MODULE_ID, 'isJoker');
+    let suit = this.getCardSuit(card);
+    
+    // For jokers, add phantom suit information
+    if (isJoker) {
+      const phantomSuit = card.getFlag(MODULE_ID, 'phantomSuit');
+      if (phantomSuit) {
+        // Use the phantom suit instead
+        suit = phantomSuit;
+      }
+      
+      return {
+        id: card.id,
+        name: card.name,
+        img: card.faces[card.face ?? 0]?.img,
+        suit: suit,
+        isJoker: true,
+        phantomSuit: phantomSuit
+      };
+    }
+    
+    return {
       id: card.id,
       name: card.name,
       img: card.faces[card.face ?? 0]?.img,
-      suit: this.getCardSuit(card) // Extract the suit properly
-  }));
+      suit: suit
+    };
+  });
 
   // Get available damage types (suits) for this set
   const availableSuits = [...new Set(cardsWithSuits.map(c => c.suit))];
@@ -494,6 +635,7 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
     comboDescription: description.base,
     isMultiTarget: isMultiTarget, // Added for targeting info
     isDoubleTrouble: isDoubleTrouble,
+    isMagicPair: isMagicPair,
     cards: cardsWithSuits,
     availableSuits: availableSuits,
     

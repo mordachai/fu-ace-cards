@@ -115,10 +115,22 @@ export class SocketManager {
       console.log(`${MODULE_ID} | Processing damageConfirm socket message`);
       this.handleDamageConfirm(msg);
       break;
+
+    case 'returnCardToHand':
+      console.log(`${MODULE_ID} | Processing returnCardToHand socket message`);
+      this.handleCardReturnedToHand(msg);
+      break;    
       
     default:
       console.warn(`${MODULE_ID} | Unknown socket action:`, msg.action);
+    }
   }
+
+  static handleCardReturnedToHand(msg) {
+    // Update table view for all players
+    if (window.FuAceCards?.UIManager) {
+      window.FuAceCards.UIManager.renderTable();
+    }
   }
   
   // Handle a card being played to the table
@@ -550,5 +562,13 @@ export class SocketManager {
       action: 'cleanTable',
       senderId: game.userId
     });
+  }
+
+  static emitCardReturnedToHand(cardId) {
+  game.socket.emit(`module.${MODULE_ID}`, {
+    action: 'returnCardToHand',
+    cardId: cardId,
+    senderId: game.userId
+  });
   }
 }

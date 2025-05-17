@@ -1,30 +1,41 @@
 <div id="fu-table-area" class="fu-area">
-  <div id="fu-table-cards" class="fu-hud-cards"></div>
+  <!-- Info panel ABOVE cards, not overlapping -->
+  <div class="fu-set-info-panel" id="fu-table-info-panel">
+    <div class="fu-set-info-bar" id="fu-table-info-bar"></div>
+  </div>
+  
+  <div id="fu-table-cards" class="fu-table-cards"></div>
   <div class="fu-hud-controls">
-    {{!-- Show clean table button to GM or to players with hand cards --}}
     {{#if isGM}}
-      <button id="fu-clean-table" class="fu-button"><i class="fa-solid fa-broom-wide" title="Clean Table"></i></button>
+      <button id="fu-manual-reset" class="fu-button" title="Clean Table (Removes all cards from table)"><i class="fas fa-broom"></i></button>
     {{else}}
       {{#if hasHandCards}}
-        <button id="fu-clean-table" class="fu-button"><i class="fa-solid fa-broom-wide" title="Clean Table"></i></button>
+        <button id="fu-manual-reset" class="fu-button" title="Clean Table (Removes all cards from table)"><i class="fas fa-broom"></i></button>
       {{/if}}
     {{/if}}
   </div>
-  {{!-- Set info bar --}}
-  <div class="fu-set-info-bar" id="fu-table-info-bar"></div>
 </div>
 
-{{!-- Only show hand area to non-GM players who have a hand --}}
 {{#unless isGM}}
   {{#if hasHandCards}}
     <div id="fu-hand-area" class="fu-area">
-      {{!-- Set info bar --}}
-      <div class="fu-set-info-bar" id="fu-hand-info-bar"></div>
-      <div id="fu-hand-cards" class="fu-hud-cards"></div>
+      <div class="fu-drawer-handle" title="Click to keep open/close"></div>
+      
+      <!-- Info panel ABOVE cards, not overlapping -->
+      <div class="fu-set-info-panel" id="fu-hand-info-panel">
+        <div class="fu-set-info-bar" id="fu-hand-info-bar"></div>
+      </div>
+      
+      <div id="fu-hand-cards" class="fu-hand-cards"></div>
       <div class="fu-hud-controls">
         <button id="fu-draw-card" class="fu-button"><i class="fa-solid fa-cards-blank" title="Draw Card"></i></button>
-        <button id="fu-reset-hand" class="fu-button"><i class="fa-solid fa-broom-wide" title="Reset Hand"></i></button>
+        <button id="fu-mulligan" class="fu-button" title="Mulligan: Discard up to your skill level in cards and draw that many"><i class="fa-solid fa-arrows-retweet"></i></button>
       </div>
     </div>
   {{/if}}
 {{/unless}}
+
+<div id="fu-table-toggle" class="fu-toggle-button" title="Toggle Table Visibility">
+  <i class="fas fa-eye"></i>
+  <span class="fu-card-count" style="display:none">0</span>
+</div>
