@@ -141,6 +141,47 @@ static async discardCard(cardId) {
   }
 }
 
+static async returnCardToHand(cardId) {
+  const tablePile = getTablePile();
+  const piles = getCurrentPlayerPiles();
+  
+  if (!tablePile || !piles?.hand) {
+    ui.notifications.warn("Cannot return card: piles not found");
+    return false;
+  }
+  
+  // Find the card on the table
+  const card = tablePile.cards.get(cardId);
+  if (!card) {
+    console.error(`${MODULE_ID} | Card ${cardId} not found on table`);
+    return false;
+  }
+  
+  // Check if this card belongs to the current player
+  const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+  if (ownerId !== game.userId) {
+    ui.notifications.warn("You can only return your own cards to hand");
+    return false;
+  }
+  
+  try {
+    // Pass the card from table to hand
+    await tablePile.pass(piles.hand, [cardId], { chatNotification: false });
+    
+    // Update UI
+    UIManager.renderTable();
+    UIManager.renderHand();
+    
+    // Send socket message to notify other players
+    SocketManager.emitCardReturnedToHand(cardId);
+    
+    return true;
+  } catch (error) {
+    console.error("Error returning card to hand:", error);
+    return false;
+  }
+}
+
 // Play a card from hand to table
 static async playCardToTable(card) {
   const piles = getCurrentPlayerPiles();

@@ -10,70 +10,85 @@ export class UIManager {
   
   // Render the table area
   static renderTable() {
-    const tableArea = document.getElementById('fu-table-area');
-    const tablePile = getTablePile();
-    
-    if (!tablePile) return;
-    
-    const cards = tablePile.cards;
+      const tableArea = document.getElementById('fu-table-area');
+      const tablePile = getTablePile();
+      
+      if (!tablePile) return;
+      
+      const cards = tablePile.cards;
 
-    // Hide the entire table area if empty
-    if (cards.size === 0) {
-      tableArea.style.display = 'none';
-      return;
-    }
-    
-    // Otherwise make sure it's visible
-    tableArea.style.display = 'flex';
+      // Hide the entire table area if empty
+      if (cards.size === 0) {
+        tableArea.style.display = 'none';
+        return;
+      }    
+      
+      // Otherwise make sure it's visible
+      tableArea.style.display = 'flex';
 
-    // Now render the cards
-    const container = document.getElementById('fu-table-cards');
-    container.innerHTML = '';
-    
-    for (const c of cards) {
-      const d = document.createElement('div');
-      d.className = 'fu-card';
-      d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
-      d.dataset.cardId = c.id;
+      // Now render the cards
+      const container = document.getElementById('fu-table-cards');
+      container.innerHTML = '';
       
-      // Apply player color
-      this.applyPlayerColor(d, c);
-      
-      // Check if this is a joker with phantom values
-      const isJoker = c.name.toLowerCase().includes('joker') || c.getFlag(MODULE_ID, 'isJoker');
-      
-      if (isJoker && c.getFlag(MODULE_ID, 'phantomSuit') && c.getFlag(MODULE_ID, 'phantomValue')) {
-        const phantomSuit = c.getFlag(MODULE_ID, 'phantomSuit');
-        const phantomValue = c.getFlag(MODULE_ID, 'phantomValue');
+      for (const c of cards) {
+        const d = document.createElement('div');
+        d.className = 'fu-card';
+        d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
+        d.dataset.cardId = c.id;
         
-        // Add data attributes for styling - READ ONLY
-        d.classList.add('fu-joker-card-table'); // Different class to style differently
-        d.dataset.phantomSuit = phantomSuit;
-        d.dataset.phantomValue = phantomValue;
+        // Apply player color
+        this.applyPlayerColor(d, c);
         
-        // Add tooltip showing the phantom card it represents
-        const suitSymbols = { 'hearts': '♥', 'diamonds': '♦', 'clubs': '♣', 'spades': '♠' };
-        const suitSymbol = suitSymbols[phantomSuit] || '';
-        d.dataset.tooltip = `Joker as ${phantomValue} of ${window.capitalize(phantomSuit)} ${suitSymbol}`;
-      } else {
-        // Regular tooltip
-        const tooltip = this.createCardTooltip(c);
-        if (tooltip) {
-          d.dataset.tooltip = tooltip;
+        // Check if this is a joker with phantom values
+        const isJoker = c.name.toLowerCase().includes('joker') || c.getFlag(MODULE_ID, 'isJoker');
+        
+        if (isJoker && c.getFlag(MODULE_ID, 'phantomSuit') && c.getFlag(MODULE_ID, 'phantomValue')) {
+          const phantomSuit = c.getFlag(MODULE_ID, 'phantomSuit');
+          const phantomValue = c.getFlag(MODULE_ID, 'phantomValue');
+          
+          // Add data attributes for styling - READ ONLY
+          d.classList.add('fu-joker-card-table'); // Different class to style differently
+          d.dataset.phantomSuit = phantomSuit;
+          d.dataset.phantomValue = phantomValue;
+          
+          // Add tooltip showing the phantom card it represents
+          const suitSymbols = { 'hearts': '♥', 'diamonds': '♦', 'clubs': '♣', 'spades': '♠' };
+          const suitSymbol = suitSymbols[phantomSuit] || '';
+          d.dataset.tooltip = `Joker as ${phantomValue} of ${window.capitalize(phantomSuit)} ${suitSymbol}`;
+        } else {
+          // Regular tooltip
+          const tooltip = this.createCardTooltip(c);
+          if (tooltip) {
+            d.dataset.tooltip = tooltip;
+          }
         }
+        
+        // Add click handler for returning cards to hand - PLACE THIS INSIDE THE LOOP
+        d.addEventListener('click', async (event) => {
+          // If clicking a set indicator, don't also return the card
+          if (event.target.closest('.fu-set-indicator')) {
+            return;
+          }
+          
+          const ownerId = c.getFlag(MODULE_ID, 'ownerId');
+          
+          // Only allow returning your own cards
+          if (ownerId === game.userId) {
+            await window.FuAceCards?.CardController.returnCardToHand(c.id);
+          }
+        });
+        
+        // Add to the container
+        container.appendChild(d);
       }
       
-      // Add to the container
-      container.appendChild(d);
-    }
-    
-    // Update set info bar for table
-    if (cards.size > 0) {
-      // Use the imported EventHandlers or a safe reference
-      const handleTableSetClick = window.FuAceCards?.handleTableSetClick || 
-                                EventHandlers.handleTableSetClick.bind(EventHandlers);
-      updateSetInfoBar(Array.from(cards), 'table', handleTableSetClick);
-    }
+      // Update set info bar for table
+      if (cards.size > 0) {
+        // Use the imported EventHandlers or a safe reference
+        const handleTableSetClick = window.FuAceCards?.handleTableSetClick || 
+                                  EventHandlers.handleTableSetClick.bind(EventHandlers);
+        updateSetInfoBar(Array.from(cards), 'table', handleTableSetClick);
+      }
   }
   
   // Render the hand area
@@ -296,6 +311,45 @@ export class UIManager {
     }, 10000);
   }
 
+  // Add to scripts/card-controller.js
+  static async returnCardToHand(cardId) {
+    const tablePile = getTablePile();
+    const piles = getCurrentPlayerPiles();
+    
+    if (!tablePile || !piles?.hand) {
+      ui.notifications.warn("Cannot return card: piles not found");
+      return false;
+    }
+    
+    // Find the card on the table
+    const card = tablePile.cards.get(cardId);
+    if (!card) {
+      console.error(`${MODULE_ID} | Card ${cardId} not found on table`);
+      return false;
+    }
+    
+    // Check if this card belongs to the current player
+    const ownerId = card.getFlag(MODULE_ID, 'ownerId');
+    if (ownerId !== game.userId) {
+      ui.notifications.warn("You can only return your own cards to hand");
+      return false;
+    }
+    
+    try {
+      // Pass the card from table to hand
+      await tablePile.pass(piles.hand, [cardId], { chatNotification: false });
+      
+      // Update UI
+      UIManager.renderTable();
+      UIManager.renderHand();
+      
+      return true;
+    } catch (error) {
+      console.error("Error returning card to hand:", error);
+      return false;
+    }
+  }
+
   // Add new method to ensure handlers exist - ADDED
   static ensureHandAreaFunctional() {
     if (window.FuAceCards?.EventHandlers) {
@@ -456,23 +510,25 @@ export class UIManager {
       return false;
     }
     
-    // Check if player has the Mulligan skill
-    const mulliganSkill = actor.items.find(i => 
-      i.name === "Mulligan" || 
-      (i.name === "Magic Cards" && i.system?.level >= 5)
+    // Look for direct Mulligan skill first
+    const mulliganSkill = actor.items.find(i => i.name === "Mulligan" && i.type === "skill");
+    
+    // Then check for Magic Cards level 5+ as fallback
+    const magicCardsSkill = actor.items.find(i => 
+      i.name === "Magic Cards" && 
+      i.type === "skill" && 
+      i.system.level.value >= 5
     );
     
-    // Determine skill level - default to 0 if not found
+    // Determine skill level
     let skillLevel = 0;
     
     if (mulliganSkill) {
-      if (mulliganSkill.name === "Mulligan") {
-        // Extract the level as a number
-        skillLevel = Number(mulliganSkill.system?.level) || 1;
-      } else if (mulliganSkill.name === "Magic Cards" && Number(mulliganSkill.system?.level) >= 5) {
-        // If Magic Cards level 5+, allow Mulligan with skill level of 1
-        skillLevel = 1;
-      }
+      // Use direct Mulligan level
+      skillLevel = mulliganSkill.system.level.value;
+    } else if (magicCardsSkill) {
+      // Magic Cards level 5+ grants Mulligan level 1
+      skillLevel = 1;
     } else {
       ui.notifications.warn("You don't have the Mulligan skill");
       return false;
@@ -494,7 +550,7 @@ export class UIManager {
     // Re-render hand to show discard buttons
     this.renderHand();
     
-    // Ensure hand area is functional - ADDED
+    // Ensure hand area is functional
     this.ensureHandAreaFunctional();
     
     return true;
