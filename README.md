@@ -36,6 +36,18 @@ You will note that there is a Table component already there. Assign OWNER to any
 In the Configure Settings section, in the Fabula ultima: Ace of Cards entry:
 Go to the Deck Configuration and assign the correct Deck, Hand, and Discard for the player(s). Ignore any players that does not have the Magic Cards skill.
 
-Save and reload the canvas, if the players dont see changes make them reload too.
+Save and reload the canvas (F5). If the players don't see changes, make them reload, too.
 
-Thats it
+That's it, let's play.
+
+## Areas and Controls
+#### Table (top)
+Cards placed there are visible to everyone (if they have at least the Observer permission).
+Click on the handle to open and close, a counter shows how many cards there are.
+
+#### Hand (bottom)
+Only visible for players with Magic Cards/Decks. There are three controls there:
+- Draw Cards: Draw one card from the deck into the hand.
+- Mulligan: Allow the player to discard one card that will be automatically replaced
+- Shuffle Deck: Use at the end of the conflict to retrieve all cards.
+
