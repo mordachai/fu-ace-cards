@@ -68,7 +68,7 @@ Use the buttons to spend the set MP cost automatically
 Click on the cards to select the effect when its the case (like Magic Pair and Double Trouble) 
 Target tokens to automatically apply damage or healing to multiple targets. As some effects involve splitting damage/healing and effects, a dialog will open to help with the splitting.
 
-##Fabula Ultima System:
+## Fabula Ultima System:
 
 Created by Emanuele Galletto
 Published by Need Games
