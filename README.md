@@ -16,6 +16,8 @@ Use this manifest URL in Foundry's module installer:
 
 To create a deck, just drag from the compendium to the Card Stack area in the right side panel.
 
+![image](https://github.com/user-attachments/assets/db8d18a4-75ca-4697-b89f-45bfe13a5323)
+
 Choose one of the 3 decks available:
 - Elemental Deck: Artistic four elements cards specially created for the Ace of Cards class. 
 - Foundry Light: based on Foundry's Poker Cards deck.
