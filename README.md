@@ -60,10 +60,16 @@ Only visible for players with Magic Cards/Decks. There are three controls there:
 ## How to play:
 Draw your hand
 Click the buttons to send a set to the Table, or click on individual cards and send them one-to-one to form a set there.
+![image](https://github.com/user-attachments/assets/c3152728-63c3-47f1-b143-6caf68ada4c2)
+
 
 JOKERS CAN BE ANY CARD: click with the right button over a joker in your hand and select its suit and value.
+![image](https://github.com/user-attachments/assets/ae791ded-10b7-4d85-86f8-ec66fb4431e9)
+
 
 Once in the table:
+![image](https://github.com/user-attachments/assets/96f72bf6-5e2e-4aa2-ab3d-2190235b16ef)
+
 Discard all table in the button (use it to discard carts without resolving sets, remember to pay their price in MP)
 Send sets to the chat window, using the buttons for that
 Retrieve a card to hand by clicking on it.
