@@ -51,3 +51,36 @@ Only visible for players with Magic Cards/Decks. There are three controls there:
 - Mulligan: Allow the player to discard one card that will be automatically replaced
 - Shuffle Deck: Use at the end of the conflict to retrieve all cards.
 
+## How to play:
+Draw your hand
+Click the buttons to send a set to the Table, or click on individual cards and send them one-to-one to form a set there.
+
+JOKERS CAN BE ANY CARD: click with the right button over a joker in your hand and select its suit and value.
+
+Once in the table:
+Discard all table in the button (use it to discard carts without resolving sets, remember to pay their price in MP)
+Send sets to the chat window, using the buttons for that
+Retrieve a card to hand by clicking on it.
+
+
+## Chat window:
+Use the buttons to spend the set MP cost automatically
+Click on the cards to select the effect when its the case (like Magic Pair and Double Trouble) 
+Target tokens to automatically apply damage or healing to multiple targets. As some effects involve splitting damage/healing and effects, a dialog will open to help with the splitting.
+
+##Fabula Ultima System:
+
+Created by Emanuele Galletto
+Published by Need Games
+Ace of Cards class design by Emanuele Galletto
+
+Special Thanks:
+
+The Fabula Ultima community for feedback and testing
+Contributors and translators
+Need Games for creating this amazing system
+
+### License
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+
