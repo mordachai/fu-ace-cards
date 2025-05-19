@@ -1,5 +1,5 @@
 # Fabula Ultima: Ace of Cards
-A Foundry VTT module that provides card management for the Ace of Cards class from Fabula Ultima. This module gives players a shared table area and personal hand UI to manage their card decks, detect valid card sets, and apply in-game effects.
+A Foundry VTT module that provides card management for the ![Ace of Cards](https://www.needgames.it/wp-content/uploads/2023/07/Fabula-Bonus-Ace-of-Cards.pdf) class from Fabula Ultima. This module gives players a shared table area and personal hand UI to manage their card decks, detect valid card sets, and apply in-game effects.
 
 Use this manifest URL in Foundry's module installer:
 ``https://raw.githubusercontent.com/mordachai/fu-ace-cards/refs/heads/main/module.json``
@@ -31,7 +31,7 @@ NOTE: It's a good idea to add the player's name to the deck's name to keep track
 
 Still on the Card Stack menu, create a Hand object (HAND) and a Discard Pile object (PILE). In the same way, name them accordingly.
 
-You will note that there is a Table component already there. Assign OWNER to any player with the Magical Cards skill and leave the rest as OBSERVER.
+You will note that a Table component is already there. Assign OWNER to any player with the Magical Cards skill and leave the rest as OBSERVER so they can see the cards played on the table.
 
 ![image](https://github.com/user-attachments/assets/0abc148c-7c57-4cc8-9baa-dcb171a4a88f)
 
