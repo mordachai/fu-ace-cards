@@ -68,7 +68,7 @@ JOKERS CAN BE ANY CARD: click with the right button over a joker in your hand an
 
 
 Once in the table:
-![image](https://github.com/user-attachments/assets/96f72bf6-5e2e-4aa2-ab3d-2190235b16ef)
+![image](https://github.com/user-attachments/assets/54d505a9-141b-4a76-913d-74502b7977b1)
 
 Discard all table in the button (use it to discard carts without resolving sets, remember to pay their price in MP)
 Send sets to the chat window, using the buttons for that
