@@ -1,3 +1,5 @@
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/W7W01A1ZN1)
+
 # Fabula Ultima: Ace of Cards
 A Foundry VTT module that provides card management for the [**Ace of Cards**](https://www.needgames.it/wp-content/uploads/2023/07/Fabula-Bonus-Ace-of-Cards.pdf) class from [***Fabula Ultima***](https://need.games/fabula-ultima/). This module gives players a shared table area and personal hand UI to manage their card decks, detect valid card sets, and apply in-game effects.
 
