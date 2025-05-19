@@ -1,8 +1,7 @@
 # Fabula Ultima: Ace of Cards
-A Foundry VTT module that provides card management for the ![Ace of Cards](https://www.needgames.it/wp-content/uploads/2023/07/Fabula-Bonus-Ace-of-Cards.pdf) class from Fabula Ultima. This module gives players a shared table area and personal hand UI to manage their card decks, detect valid card sets, and apply in-game effects.
+A Foundry VTT module that provides card management for the [**Ace of Cards**](https://www.needgames.it/wp-content/uploads/2023/07/Fabula-Bonus-Ace-of-Cards.pdf) class from [***Fabula Ultima***](https://need.games/fabula-ultima/). This module gives players a shared table area and personal hand UI to manage their card decks, detect valid card sets, and apply in-game effects.
 
-Use this manifest URL in Foundry's module installer:
-``https://raw.githubusercontent.com/mordachai/fu-ace-cards/refs/heads/main/module.json``
+[Ace of Cards](https://github.com/user-attachments/assets/dd3530e4-eecc-49e1-ada8-b6d27f1f56aa)
 
 ## Features
 - Hand Drawer UI: Collapsible drawer for your hand of cards
@@ -11,6 +10,10 @@ Use this manifest URL in Foundry's module installer:
 - Joker Support: Assign suits and values to joker cards
 - Automatic Effects: Apply damage, healing, and status effects directly to tokens
 
+### Installation
+Paste this url in the Manifest URL of Foundry's Install Module section:
+``https://raw.githubusercontent.com/mordachai/fu-ace-cards/refs/heads/main/module.json``
+_______________________________
 ## Setup
 ### 1. Choose a deck for each player with Magic Cards
 
@@ -41,56 +44,54 @@ Go to the Deck Configuration and assign the correct Deck, Hand, and Discard for 
 
 ![image](https://github.com/user-attachments/assets/9762caa6-fd07-4dea-9278-e8ff1bf26931)
 
-
 Save and reload the canvas (F5). If the players don't see changes, make them reload, too.
 
 That's it, let's play.
-
+_______________________________
 ## Areas and Controls
 #### Table (top)
 Cards placed there are visible to everyone (if they have at least the Observer permission).
 Click on the handle to open and close, a counter shows how many cards there are.
+
+
+![image](https://github.com/user-attachments/assets/b9e9c9bd-a01e-4b71-9d15-2d7b152dcf20)
+
 
 #### Hand (bottom, only for players)
 Only visible for players with Magic Cards/Decks. There are three controls there:
 - Draw Cards: Draw one card from the deck into the hand.
 - Mulligan: Allow the player to discard one card that will be automatically replaced
 - Shuffle Deck: Use at the end of the conflict to retrieve all cards.
+_______________________________
 
 ## How to play:
-Draw your hand
+**Draw your hand**
 Click the buttons to send a set to the Table, or click on individual cards and send them one-to-one to form a set there.
-![image](https://github.com/user-attachments/assets/c3152728-63c3-47f1-b143-6caf68ada4c2)
 
-
-JOKERS CAN BE ANY CARD: click with the right button over a joker in your hand and select its suit and value.
 ![image](https://github.com/user-attachments/assets/ae791ded-10b7-4d85-86f8-ec66fb4431e9)
 
+**JOKERS CAN BE ANY CARD**: ***right click*** over a joker in your hand and select its suit and value.
 
-Once in the table:
-![image](https://github.com/user-attachments/assets/54d505a9-141b-4a76-913d-74502b7977b1)
-
-Discard all table in the button (use it to discard carts without resolving sets, remember to pay their price in MP)
-Send sets to the chat window, using the buttons for that
-Retrieve a card to hand by clicking on it.
-
-
+**Table**: discard cards or resolve sets.
+- Resolve sets, sending them to the chat window.
+- Discard the cards (remember to pay the MP cost, no cheating!
+- Get the card back to your hand by clicking on them.
+_______________________________
 ## Chat window:
-Use the buttons to spend the set MP cost automatically
-Click on the cards to select the effect when its the case (like Magic Pair and Double Trouble) 
+Use the buttons in the chat card roll to apply damage to targeted tokens and spent MP costs automatically
+Some sets ask you to click on a card to select the damage type 
 Target tokens to automatically apply damage or healing to multiple targets. As some effects involve splitting damage/healing and effects, a dialog will open to help with the splitting.
+
+[Ace of Cards - Split Damage.webm](https://github.com/user-attachments/assets/76684803-c492-4ee8-bd1b-f0c363840f6c)
+
+##Known Issues
+Sometimes after you configure everything the player don't see her/his hand. Remember to update the GM screen and ask the player to update her/his too (F5 in Windows systems).
 
 ## Fabula Ultima System:
 
 Created by Emanuele Galletto
 Published by Need Games
 Ace of Cards class design by Emanuele Galletto
-
-Special Thanks:
-
-The Fabula Ultima community for feedback and testing
-Contributors and translators
-Need Games for creating this amazing system
 
 ### License
 This project is licensed under the MIT License - see the LICENSE file for details.
