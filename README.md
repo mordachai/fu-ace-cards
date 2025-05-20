@@ -74,10 +74,10 @@ Click the buttons to send a set to the Table, or click on individual cards and s
 
 **JOKERS CAN BE ANY CARD**: ***right click*** over a joker in your hand and select its suit and value.
 
-**Table**: discard cards or resolve sets.
-- Resolve sets, sending them to the chat window.
+**Table**: discard cards, resolve sets.
+- Resolve sets and send them to the chat window using the set buttons.
 - Discard the cards (remember to pay the MP cost, no cheating!
-- Get the card back to your hand by clicking on them.
+- Get a card back into your hand by clicking on it.
 _______________________________
 ## Chat window:
 Use the buttons in the chat card roll to apply damage to targeted tokens and spent MP costs automatically
