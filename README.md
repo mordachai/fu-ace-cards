@@ -74,10 +74,10 @@ Click the buttons to send a set to the Table, or click on individual cards and s
 
 **JOKERS CAN BE ANY CARD**: ***right click*** over a joker in your hand and select its suit and value.
 
-**Table**: discard cards or resolve sets.
-- Resolve sets, sending them to the chat window.
+**Table**: discard cards, resolve sets.
+- Resolve sets and send them to the chat window using the set buttons.
 - Discard the cards (remember to pay the MP cost, no cheating!
-- Get the card back to your hand by clicking on them.
+- Get a card back into your hand by clicking on it.
 _______________________________
 ## Chat window:
 Use the buttons in the chat card roll to apply damage to targeted tokens and spent MP costs automatically
@@ -86,7 +86,7 @@ Target tokens to automatically apply damage or healing to multiple targets. As s
 
 [Ace of Cards - Split Damage.webm](https://github.com/user-attachments/assets/76684803-c492-4ee8-bd1b-f0c363840f6c)
 
-##Known Issues
+## Known Issues
 Sometimes after you configure everything the player don't see her/his hand. Remember to update the GM screen and ask the player to update her/his too (F5 in Windows systems).
 
 ## Fabula Ultima System:
