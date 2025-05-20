@@ -86,7 +86,7 @@ Target tokens to automatically apply damage or healing to multiple targets. As s
 
 [Ace of Cards - Split Damage.webm](https://github.com/user-attachments/assets/76684803-c492-4ee8-bd1b-f0c363840f6c)
 
-##Known Issues
+## Known Issues
 Sometimes after you configure everything the player don't see her/his hand. Remember to update the GM screen and ask the player to update her/his too (F5 in Windows systems).
 
 ## Fabula Ultima System:
