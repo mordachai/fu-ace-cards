@@ -23,10 +23,11 @@ To create a deck, just drag from the compendium to the Card Stack area in the ri
 
 ![image](https://github.com/user-attachments/assets/db8d18a4-75ca-4697-b89f-45bfe13a5323)
 
-Choose one of the 3 decks available:
+Choose one of the <del>3 decks</del> **4 decks** available:
 - Elemental Deck: Artistic four elements cards specially created for the Ace of Cards class. 
 - Foundry Light: based on Foundry's Poker Cards deck.
 - Suits Deck: classical  poker suits, with elemental motifs.
+- **NEW!** FU Deck: Fabula Ultima elements. Including the Air Bananas!
 
 Or create your own using Foundry's deck tools and components. Decks can be the same or different from each other, the important part is that each player who has Magic Cards has their own deck.
 
