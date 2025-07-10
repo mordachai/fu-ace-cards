@@ -89,6 +89,11 @@ export function detectFabulaUltimaSets(cards) {
   
   // Sort by value for easier analysis
   validCards.sort((a, b) => a.value - b.value);
+
+  // Forbidden Monarch: 4 cards of same value (no jokers) + 1 joker
+  // Special case: Need to use both nonJokers and jokers separately
+  const forbiddenMonarch = findForbiddenMonarch(nonJokers, jokers);
+  if (forbiddenMonarch) sets.push(forbiddenMonarch);
   
   // Jackpot: Must be 4 cards of same value, none of which is a joker
   const jackpot = findJackpot(nonJokers);  // Explicitly use non-jokers
@@ -123,11 +128,6 @@ export function detectFabulaUltimaSets(cards) {
   // Can include jokers with their phantom values
   const magicPairs = findMagicPair(validCards);
   sets.push(...magicPairs);
-  
-  // Forbidden Monarch: 4 cards of same value (no jokers) + 1 joker
-  // Special case: Need to use both nonJokers and jokers separately
-  const forbiddenMonarch = findForbiddenMonarch(nonJokers, jokers);
-  if (forbiddenMonarch) sets.push(forbiddenMonarch);
   
   // Post-processing: For sets with jokers, mark them in the set data
   for (const set of sets) {
