@@ -21,6 +21,12 @@ static async drawCard() {
     return false;
   }
 
+  // Player can't have more than 5 cards in hand
+  if ((piles.hand.cards).size >= 5) {
+    ui.notifications.info(`${MODULE_ID} | Cannot draw: Player has maximum cards in hand (5)`);
+    return
+  }
+
   // Let's first check how many AVAILABLE cards we have (with drawn=false)
   const availableCards = Array.from(piles.deck.cards).filter(c => !c.drawn);
   console.log(`${MODULE_ID} | Deck has ${piles.deck.cards.size} total cards, ${availableCards.length} available for drawing`);
