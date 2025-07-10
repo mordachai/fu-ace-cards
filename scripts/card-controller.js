@@ -789,7 +789,10 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
     damageTypeLabel: damageData?.type ? game.i18n.localize(`FU.Damage${window.capitalize(damageData.type)}`) || damageData.type.toUpperCase() : '',
     highRoll: damageData?.highRoll || 0,
     baseDamage: damageData?.baseDamage || 0,
-    
+
+    // Damage label
+    damageTypeIcon: damageData?.type !== 'air' ? damageData?.type : 'wind', // Special case: air damage uses fu-wind icon class
+
     // Healing data
     isHealingSet: isHealingSet,
     healingData: healingData,
