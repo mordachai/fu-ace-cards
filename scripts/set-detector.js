@@ -372,7 +372,7 @@ function groupByValue(cards) {
 
 function groupBySuit(cards) {
   return cards.reduce((groups, card) => {
-    if (card.isJoker) return groups; // Skip jokers
+    if (!card.suit && !card.value) return groups; // Skip unassigned jokers
     const suit = card.suit;
     if (!groups[suit]) groups[suit] = [];
     groups[suit].push(card);
