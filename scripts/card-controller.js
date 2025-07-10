@@ -287,7 +287,7 @@ static async playSetToTable(setData, indicator) {
     return isJoker && (!card.getFlag(MODULE_ID, 'phantomSuit') || !card.getFlag(MODULE_ID, 'phantomValue'));
   });
   
-  if (hasUnassignedJoker) {
+  if (hasUnassignedJoker && setData.type !== 'forbidden-monarch') {
     return false;
   }
   
@@ -349,7 +349,7 @@ static async playSetToTable(setData, indicator) {
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
 
-        // Verify handlers are still attached
+    // Verify handlers are still attached
     if (window.FuAceCards?.EventHandlers) {
       window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
     } else if (typeof EventHandlers !== 'undefined') {
