@@ -499,16 +499,16 @@ export class EventHandlers {
   
   // Setup chat message interaction handlers
   static setupChatMessageHandlers() {
-    Hooks.on('renderChatMessage', (message, html, data) => {
+    Hooks.on('renderChatMessageHTML', (message, html, data) => {
       // Check if this is a card set message
-      const messageContent = html.find('.fu-chat-cards-container');
-      if (messageContent.length > 0) {
+      const messageContent = html.querySelector('.fu-chat-cards-container');
+      if (messageContent) {
         console.log(`${MODULE_ID} | Processing chat message with card container`);
         
         // Check for set types using either data attribute or section class
-        const isDoubleTrouble = html.find('[data-set-type="double-trouble"]').length > 0;
-        const isMagicPair = html.find('[data-set-type="magic-pair"]').length > 0 || 
-                          html.find('.weapon-attack-check').length > 0;
+        const isDoubleTrouble = html.querySelector('[data-set-type="double-trouble"]') !== null;
+        const isMagicPair = html.querySelector('[data-set-type="magic-pair"]') !== null || 
+                          html.querySelector('.weapon-attack-check') !== null;
         
         console.log(`${MODULE_ID} | Message contains: Double Trouble: ${isDoubleTrouble}, Magic Pair: ${isMagicPair}`);
         
@@ -526,7 +526,7 @@ export class EventHandlers {
       }
       
       // Also check for healing result messages
-      if (html.find('.fu-healing-results, .fu-status-results').length > 0) {
+      if (html.querySelector('.fu-healing-results, .fu-status-results')) {
         this.setupHealingResultHandlers(html);
       }
     });

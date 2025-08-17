@@ -227,6 +227,7 @@ static async playCardToTable(card) {
     // Set owner flag on the card AFTER successful pass
     const tableCard = tablePile.cards.get(card.id);
     if (tableCard) {
+      console.log('Setting owner flag on card:', card.id);
       await tableCard.setFlag(MODULE_ID, 'ownerId', game.userId);
       
       // If it's a joker, also transfer phantom values

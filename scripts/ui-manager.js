@@ -9,95 +9,53 @@ import { EventHandlers } from './event-handlers.js';
 export class UIManager {
   
   // Render the table area
-  static renderTable() {
-      const tableArea = document.getElementById('fu-table-area');
-      const tablePile = getTablePile();
-      const toggleButton = document.getElementById('fu-table-toggle');
+static renderTable() {
+  console.log('renderTable() called');
+  const tableArea = document.getElementById('fu-table-area');
+  const tablePile = getTablePile();
+  const toggleButton = document.getElementById('fu-table-toggle');
+  
+  console.log('Table pile found:', !!tablePile);
+  console.log('Cards in table pile:', tablePile?.cards?.size);
+  
+  if (!tablePile) {
+    console.log('No table pile, returning');
+    return;
+  }
       
-      if (!tablePile) return;
-      
-      const cards = tablePile.cards;
-      const isHidden = game.settings.get(MODULE_ID, 'tableAreaHidden');
-      const cardCount = cards.size;
+  const cards = tablePile.cards;
+  const isHidden = game.settings.get(MODULE_ID, 'tableAreaHidden');
+  const cardCount = cards.size;
 
-      if (toggleButton) {
-        toggleButton.classList.toggle('hidden', isHidden);
-        toggleButton.querySelector('i').className = isHidden ? 'fa-solid fa-cards' : 'fa-regular fa-cards';
-        
-        // Update card count indicator
-        const countSpan = toggleButton.querySelector('.fu-card-count');
-        if (cardCount > 0) {
-          countSpan.textContent = cardCount;
-          countSpan.style.display = isHidden ? 'flex' : 'none';
-        } else {
-          countSpan.style.display = 'none';
-        }
-      }
+  console.log('Card count:', cardCount);
+  console.log('Is hidden setting:', isHidden);
 
-      // Hide the entire table area if empty or setting is hidden
-      if (cardCount === 0 || isHidden) {
-        tableArea.style.display = 'none';
-        return;
-      }   
-      
-      // Otherwise make sure it's visible
-      tableArea.style.display = 'flex';
+  // Hide the entire table area if empty or setting is hidden
+  if (cardCount === 0 || isHidden) {
+    console.log('Exiting early - empty or hidden');
+    tableArea.style.display = 'none';
+    return;
+  }   
 
-      // Now render the cards
-      const container = document.getElementById('fu-table-cards');
-      container.innerHTML = '';
-      
-      for (const c of cards) {
-        const d = document.createElement('div');
-        d.className = 'fu-card';
-        d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
-        d.dataset.cardId = c.id;
-        
-        // Apply player color
-        this.applyPlayerColor(d, c);
-        
-        // Check if this is a joker with phantom values
-        const isJoker = c.name.toLowerCase().includes('joker') || c.getFlag(MODULE_ID, 'isJoker');
-        
-        if (isJoker && c.getFlag(MODULE_ID, 'phantomSuit') && c.getFlag(MODULE_ID, 'phantomValue')) {
-          const phantomSuit = c.getFlag(MODULE_ID, 'phantomSuit');
-          const phantomValue = c.getFlag(MODULE_ID, 'phantomValue');
-          
-          // Add data attributes for styling - READ ONLY
-          d.classList.add('fu-joker-card-table'); // Different class to style differently
-          d.dataset.phantomSuit = phantomSuit;
-          d.dataset.phantomValue = phantomValue;
-          
-          // Add tooltip showing the phantom card it represents
-          const suitSymbols = { 'hearts': '♥', 'diamonds': '♦', 'clubs': '♣', 'spades': '♠' };
-          const suitSymbol = suitSymbols[phantomSuit] || '';
-          d.dataset.tooltip = `Joker as ${phantomValue} of ${window.capitalize(phantomSuit)} ${suitSymbol}`;
-        } else {
-          // Regular tooltip
-          const tooltip = this.createCardTooltip(c);
-          if (tooltip) {
-            d.dataset.tooltip = tooltip;
-          }
-        }
-        
-        // Add click handler for returning cards to hand - PLACE THIS INSIDE THE LOOP
-        d.addEventListener('click', async (event) => {
-          // If clicking a set indicator, don't also return the card
-          if (event.target.closest('.fu-set-indicator')) {
-            return;
-          }
-          
-          const ownerId = c.getFlag(MODULE_ID, 'ownerId');
-          
-          // Only allow returning your own cards
-          if (ownerId === game.userId) {
-            await window.FuAceCards?.CardController.returnCardToHand(c.id);
-          }
-        });
-        
-        // Add to the container
-        container.appendChild(d);
-      }
+  console.log('Continuing to render cards...');
+// Otherwise make sure it's visible
+tableArea.style.display = 'flex';
+
+// Now render the cards
+const container = document.getElementById('fu-table-cards');
+container.innerHTML = ''; // Clear existing cards to prevent duplication
+
+for (const c of cards) {
+  const d = document.createElement('div');
+  d.className = 'fu-card';
+  d.style.backgroundImage = `url(${c.faces[c.face ?? 0]?.img})`;
+  d.dataset.cardId = c.id;
+  
+  // Add to the container
+  container.appendChild(d);
+}
+
+      console.log('Container now has', container.children.length, 'children');
       
       // Update set info bar for table
       if (cards.size > 0) {
@@ -271,14 +229,35 @@ export class UIManager {
         
         // Use CardController to handle the actual card play - add safety check
         if (window.FuAceCards?.CardController) {
+          console.log('Using CardController path');
           await window.FuAceCards.CardController.playCardToTable(c);
+          
+          // Force table to show immediately
+          const tableArea = document.getElementById('fu-table-area');
+          if (tableArea) {
+            tableArea.style.display = 'flex';
+            console.log('Forced table display to flex');
+          }
+          
+          console.log('About to call renderTable');
+          this.renderTable();
+          console.log('renderTable called');
         } else {
+          console.log('Using fallback path');
           // Direct fallback implementation in case CardController isn't available
           console.warn(`${MODULE_ID} | CardController not found, using fallback implementation`);
           try {
             const tablePile = getTablePile();
             if (tablePile) {
               await hand.pass(tablePile, [c.id], { chatNotification: false });
+              
+              // Force table to show immediately
+              const tableArea = document.getElementById('fu-table-area');
+              if (tableArea) {
+                tableArea.style.display = 'flex';
+                console.log('Forced table display to flex (fallback)');
+              }
+              
               this.renderHand();
               this.renderTable();
             }
@@ -288,6 +267,7 @@ export class UIManager {
           }
         }
       });
+      console.log(`Click handler added to card ${c.id}`);
       
       // Apply player color
       this.applyPlayerColor(d, c);

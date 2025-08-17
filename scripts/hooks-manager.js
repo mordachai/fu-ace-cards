@@ -179,23 +179,33 @@ static ensureHandlersAttached() {
 }
   
   // Handler for updateCards hook - MODIFIED
-  static onUpdateCards(cards, change, options, userId) {
-    // Always clean up tooltips when cards change
-    UIManager.cleanupAllTooltips();
+// Handler for updateCards hook - MODIFIED
+static onUpdateCards(cards, change, options, userId) {
+  // Always clean up tooltips when cards change
+  UIManager.cleanupAllTooltips();
+  
+  // Refresh displays when specific card stacks change
+  const tablePile = PileManager.getTablePile();
+  const playerPiles = PileManager.getCurrentPlayerPiles();
+  
+  if (cards === tablePile || 
+      (playerPiles && (cards === playerPiles.deck || cards === playerPiles.hand || cards === playerPiles.discard))) {
     
-    // Refresh displays when specific card stacks change
-    const tablePile = PileManager.getTablePile();
-    const playerPiles = PileManager.getCurrentPlayerPiles();
-    
-    if (cards === tablePile || 
-        (playerPiles && (cards === playerPiles.deck || cards === playerPiles.hand || cards === playerPiles.discard))) {
-      UIManager.renderTable();
-      UIManager.renderHand();
-      
-      // Verify hand area functionality after card updates - ADDED
-      this.verifyHandAreaFunctionality();
+    // Force table to show if cards were added to it
+    if (cards === tablePile && cards.cards.size > 0) {
+      const tableArea = document.getElementById('fu-table-area');
+      if (tableArea) {
+        tableArea.style.display = 'flex';
+      }
     }
+    
+    UIManager.renderTable();
+    UIManager.renderHand();
+    
+    // Verify hand area functionality after card updates - ADDED
+    this.verifyHandAreaFunctionality();
   }
+}
   
   // Handler for updateActor hook - MODIFIED
   static onUpdateActor(actor, changes) {
