@@ -296,7 +296,7 @@ export class UIManager {
     }
     
     // Update set info bar for hand with click handler
-    if (hand.cards.size > 0) {
+    if (hand.cards.size >= 0) {
       // Check if window.FuAceCards exists and has handleHandSetClick method
       const handleSetClick = window.FuAceCards?.handleHandSetClick || 
                           ((indicator) => console.warn(`${MODULE_ID} | handleHandSetClick not found`));

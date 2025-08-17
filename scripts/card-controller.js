@@ -21,6 +21,12 @@ static async drawCard() {
     return false;
   }
 
+  // Player can't have more than 5 cards in hand
+  if ((piles.hand.cards).size >= 5) {
+    ui.notifications.info(`${MODULE_ID} | Cannot draw: Player has maximum cards in hand (5)`);
+    return
+  }
+
   // Let's first check how many AVAILABLE cards we have (with drawn=false)
   const availableCards = Array.from(piles.deck.cards).filter(c => !c.drawn);
   console.log(`${MODULE_ID} | Deck has ${piles.deck.cards.size} total cards, ${availableCards.length} available for drawing`);
@@ -281,7 +287,7 @@ static async playSetToTable(setData, indicator) {
     return isJoker && (!card.getFlag(MODULE_ID, 'phantomSuit') || !card.getFlag(MODULE_ID, 'phantomValue'));
   });
   
-  if (hasUnassignedJoker) {
+  if (hasUnassignedJoker && setData.type !== 'forbidden-monarch') {
     return false;
   }
   
@@ -343,7 +349,7 @@ static async playSetToTable(setData, indicator) {
       word.charAt(0).toUpperCase() + word.slice(1)
     ).join(' ');
 
-        // Verify handlers are still attached
+    // Verify handlers are still attached
     if (window.FuAceCards?.EventHandlers) {
       window.FuAceCards.EventHandlers.verifyHandDrawerHandlers();
     } else if (typeof EventHandlers !== 'undefined') {
@@ -783,7 +789,10 @@ static async createSetActivationMessage(setData, playerId, mpCost) {
     damageTypeLabel: damageData?.type ? game.i18n.localize(`FU.Damage${window.capitalize(damageData.type)}`) || damageData.type.toUpperCase() : '',
     highRoll: damageData?.highRoll || 0,
     baseDamage: damageData?.baseDamage || 0,
-    
+
+    // Damage label
+    damageTypeIcon: damageData?.type !== 'air' ? damageData?.type : 'wind', // Special case: air damage uses fu-wind icon class
+
     // Healing data
     isHealingSet: isHealingSet,
     healingData: healingData,

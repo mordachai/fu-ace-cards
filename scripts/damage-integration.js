@@ -372,6 +372,7 @@ export class DamageIntegration {
                 // Damage: 25 + total value of cards, type matches the suit
                 const firstCard = setData.cards[0];
                 const suit = DamageIntegration.getCardSuit(firstCard);
+                console.log(`${MODULE_ID} | First card damage type: ${suitToDamageType[suit.toLowerCase()]}`);
                 const damageType = suitToDamageType[suit.toLowerCase()] || 'physical';
                 
                 return {
@@ -428,7 +429,7 @@ export class DamageIntegration {
     // Get card suit from card data
     static getCardSuit(card) {
         // Try to get suit from card data, flags, or name
-        return card.suit || card.getFlag('fu-ace-cards', 'suit') || 
+        return card.getFlag('fu-ace-cards', 'phantomSuit') || card.suit || card.getFlag('fu-ace-cards', 'suit') || 
                card.name.toLowerCase().match(/(clubs?|diamonds?|hearts?|spades?)/)?.[0] || '';
     }
 }
