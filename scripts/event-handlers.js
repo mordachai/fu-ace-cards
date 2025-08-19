@@ -6,6 +6,7 @@ import { PileManager } from './pile-manager.js';
 import { getTablePile, getCurrentPlayerPiles } from './pile-manager.js'; // Add getTablePile here
 import { SET_NAMES } from './set-detector.js';
 import { hideSetTooltip, clearHighlights } from './ui-enhancements.js';
+import { SocketManager } from './socket-manager.js';
 
 export class EventHandlers {
   
@@ -499,16 +500,16 @@ export class EventHandlers {
   
   // Setup chat message interaction handlers
   static setupChatMessageHandlers() {
-    Hooks.on('renderChatMessage', (message, html, data) => {
+    Hooks.on('renderChatMessageHTML', (message, html, data) => {
       // Check if this is a card set message
-      const messageContent = html.find('.fu-chat-cards-container');
-      if (messageContent.length > 0) {
+      const messageContent = html.querySelector('.fu-chat-cards-container');
+      if (messageContent) {
         console.log(`${MODULE_ID} | Processing chat message with card container`);
         
         // Check for set types using either data attribute or section class
-        const isDoubleTrouble = html.find('[data-set-type="double-trouble"]').length > 0;
-        const isMagicPair = html.find('[data-set-type="magic-pair"]').length > 0 || 
-                          html.find('.weapon-attack-check').length > 0;
+        const isDoubleTrouble = html.querySelector('[data-set-type="double-trouble"]') !== null;
+        const isMagicPair = html.querySelector('[data-set-type="magic-pair"]') !== null || 
+                          html.querySelector('.weapon-attack-check') !== null;
         
         console.log(`${MODULE_ID} | Message contains: Double Trouble: ${isDoubleTrouble}, Magic Pair: ${isMagicPair}`);
         
@@ -523,10 +524,27 @@ export class EventHandlers {
         this.setupDamageButtons(html);
         this.setupResourceButtons(html);
         this.setupHealingButtons(html);
+
+        // ADD THIS HERE - Restore any saved card selections
+        const savedSelection = message.getFlag(MODULE_ID, 'cardSelection');
+        if (savedSelection) {
+          setTimeout(() => {
+            // Use the same logic as handleCardSelection
+            if (window.FuAceCards?.SocketManager) {
+              window.FuAceCards.SocketManager.handleCardSelection({
+                messageId: message.id,
+                cardId: savedSelection.cardId,
+                damageType: savedSelection.damageType,
+                setType: savedSelection.setType,
+                senderId: 'restore' // Special flag to prevent infinite loops
+              });
+            }
+          }, 100);
+        }
       }
       
       // Also check for healing result messages
-      if (html.find('.fu-healing-results, .fu-status-results').length > 0) {
+      if (html.querySelector('.fu-healing-results, .fu-status-results')) {
         this.setupHealingResultHandlers(html);
       }
     });
@@ -534,174 +552,187 @@ export class EventHandlers {
 
   // Setup healing buttons in chat messages
   static setupHealingButtons(html) {
-    // Make sure we have jQuery object
-    const $html = html instanceof jQuery ? html : $(html);
-
     // Handle healing allocation buttons
-    $html.find('[data-action="allocateHealing"]').click(async (event) => {
-      event.preventDefault();
-      const button = event.currentTarget;
-      const setType = button.dataset.setType;
-      const totalValue = parseInt(button.dataset.value || '0');
-      const playerId = button.dataset.playerId;
-      
-      console.log(`${MODULE_ID} | Healing Button Clicked | Set Type: ${setType}, Total Value: ${totalValue}`);
-      
-      // Disable the button while processing
-      button.disabled = true;
-      $(button).find("span").text("Processing...");
-      
-      // Get player character
-      const player = game.users.get(playerId);
-      const character = player?.character;
-      
-      if (!character) {
-        ui.notifications.error("Could not find character associated with this effect");
-        button.disabled = false;
-        $(button).find("span").text("Retry Healing");
-        return;
-      }
-      
-      // Get target tokens and their actors
-      const targets = Array.from(game.user.targets)
-        .filter(t => t.actor)
-        .map(t => t.actor);
-      
-      // Add the character to targets if not already included
-      if (!targets.some(t => t.id === character.id)) {
-        targets.unshift(character);
-        console.log(`${MODULE_ID} | Added character to targets`);
-      }
-      
-      console.log(`${MODULE_ID} | Processing targets:`, targets.map(t => t.name));
-      
-      if (targets.length === 0) {
-        ui.notifications.warn("No targets selected. Use the targeting tool to select allies.");
-        button.disabled = false;
-        $(button).find("span").text("Select Targets");
-        return;
-      }
-      
-      try {
-        // Check if HealingIntegration is available
-        if (!window.FuAceCards?.HealingIntegration) {
-          ui.notifications.error("Healing integration not available");
+    const healingButtons = html.querySelectorAll('[data-action="allocateHealing"]');
+    healingButtons.forEach(healingButton => {
+      healingButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const button = event.currentTarget;
+        const setType = button.dataset.setType;
+        const totalValue = parseInt(button.dataset.value || '0');
+        const playerId = button.dataset.playerId;
+        
+        console.log(`${MODULE_ID} | Healing Button Clicked | Set Type: ${setType}, Total Value: ${totalValue}`);
+        
+        // Disable the button while processing
+        button.disabled = true;
+        const buttonSpan = button.querySelector("span");
+        if (buttonSpan) buttonSpan.textContent = "Processing...";
+        
+        // Get player character
+        const player = game.users.get(playerId);
+        const character = player?.character;
+        
+        if (!character) {
+          ui.notifications.error("Could not find character associated with this effect");
           button.disabled = false;
-          $(button).find("span").text("Retry Healing");
+          if (buttonSpan) buttonSpan.textContent = "Retry Healing";
           return;
         }
         
-        let result;
+        // Get target tokens and their actors
+        const targets = Array.from(game.user.targets)
+          .filter(t => t.actor)
+          .map(t => t.actor);
         
-        // Apply healing based on set type
-        switch (setType) {
-          case 'triple-support':
-            result = await window.FuAceCards.HealingIntegration.applyTripleSupportHealing(
-              totalValue,
-              character,
-              targets
-            );
-            break;
-            
-          case 'jackpot':
-            result = await window.FuAceCards.HealingIntegration.applyJackpotHealing(
-              character,
-              targets
-            );
-            break;
-            
-          default:
-            ui.notifications.warn(`Unknown healing set type: ${setType}`);
-            result = { applied: false };
+        // Add the character to targets if not already included
+        if (!targets.some(t => t.id === character.id)) {
+          targets.unshift(character);
+          console.log(`${MODULE_ID} | Added character to targets`);
         }
         
-        // Update button state based on result
-        if (result && result.applied) {
-          button.classList.add("disabled");
-          button.disabled = true;
-          $(button).find("span").text(`Healing Applied`);
-        } else {
+        console.log(`${MODULE_ID} | Processing targets:`, targets.map(t => t.name));
+        
+        if (targets.length === 0) {
+          ui.notifications.warn("No targets selected. Use the targeting tool to select allies.");
           button.disabled = false;
-          $(button).find("span").text(`Retry Healing`);
+          if (buttonSpan) buttonSpan.textContent = "Select Targets";
+          return;
         }
-      } catch (error) {
-        console.error("Error applying healing:", error);
-        ui.notifications.error("Failed to apply healing: " + error.message);
-        button.disabled = false;
-        $(button).find("span").text(`Retry Healing`);
-      }
-    });
-    
-    // Handle status effect buttons
-    html.find('[data-action="applyStatusEffects"]').click(async (event) => {
-      event.preventDefault();
-      const button = event.currentTarget;
-      const highestValue = parseInt(button.dataset.highestValue || '0');
-      const playerId = button.dataset.playerId;
-      
-      console.log(`${MODULE_ID} | Status Effect Button Clicked | Highest Value: ${highestValue}`);
-      
-      // Disable the button while processing
-      button.disabled = true;
-      $(button).find("span").text("Processing...");
-      
-      // Get player character
-      const player = game.users.get(playerId);
-      const character = player?.character;
-      
-      if (!character) {
-        ui.notifications.error("Could not find character associated with this effect");
-        button.disabled = false;
-        $(button).find("span").text("Retry Status Effects");
-        return;
-      }
-      
-      try {
-        // Show status effect dialog and process results
-        const result = await window.FuAceCards.HealingIntegration.applyFullStatusEffects(
-          highestValue,
-          character
-        );
         
-        // Update button state based on result
-        if (result && result.applied) {
-          button.classList.add("disabled");
-          button.disabled = true;
-          $(button).find("span").text(`Status Effects Applied`);
-        } else {
+        try {
+          // Check if HealingIntegration is available
+          if (!window.FuAceCards?.HealingIntegration) {
+            ui.notifications.error("Healing integration not available");
+            button.disabled = false;
+            if (buttonSpan) buttonSpan.textContent = "Retry Healing";
+            return;
+          }
+          
+          let result;
+          
+          // Apply healing based on set type
+          switch (setType) {
+            case 'triple-support':
+              result = await window.FuAceCards.HealingIntegration.applyTripleSupportHealing(
+                totalValue,
+                character,
+                targets
+              );
+              break;
+              
+            case 'jackpot':
+              result = await window.FuAceCards.HealingIntegration.applyJackpotHealing(
+                character,
+                targets
+              );
+              break;
+              
+            default:
+              ui.notifications.warn(`Unknown healing set type: ${setType}`);
+              result = { applied: false };
+          }
+          
+          // Update button state based on result
+          if (result && result.applied) {
+            button.classList.add("disabled");
+            button.disabled = true;
+            if (buttonSpan) buttonSpan.textContent = `Healing Applied`;
+          } else {
+            button.disabled = false;
+            if (buttonSpan) buttonSpan.textContent = `Retry Healing`;
+          }
+        } catch (error) {
+          console.error("Error applying healing:", error);
+          ui.notifications.error("Failed to apply healing: " + error.message);
           button.disabled = false;
-          $(button).find("span").text(`Retry Status Effects`);
-        }
-      } catch (error) {
-        console.error("Error applying status effects:", error);
-        ui.notifications.error("Failed to apply status effects: " + error.message);
-        button.disabled = false;
-        $(button).find("span").text(`Retry Status Effects`);
-      }
-    });
-    
-    // Add handler for "Select All Allies" button if present
-    html.find('[data-action="selectAllAllies"]').click(async (event) => {
-      event.preventDefault();
-      
-      // Deselect all current targets
-      game.user.targets.forEach(t => t.setTarget(false, { releaseOthers: false }));
-      
-      // Select all allied tokens
-      let allyCount = 0;
-      canvas.tokens.placeables.forEach(token => {
-        if (token.actor) {
-          token.setTarget(true, { releaseOthers: false });
-          allyCount++;
+          if (buttonSpan) buttonSpan.textContent = `Retry Healing`;
         }
       });
-      
-      if (allyCount > 0) {
-        ui.notifications.info(`Selected ${allyCount} character tokens`);
-      } else {
-        ui.notifications.warn("No character tokens found on the scene");
-      }
+
+    // Handle status effect buttons
+    const statusButtons = html.querySelectorAll('[data-action="applyStatusEffects"]');
+    statusButtons.forEach(statusButton => {
+      statusButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const button = event.currentTarget;
+        const highestValue = parseInt(button.dataset.highestValue || '0');
+        const playerId = button.dataset.playerId;
+        
+        console.log(`${MODULE_ID} | Status Effect Button Clicked | Highest Value: ${highestValue}`);
+        
+        // Disable the button while processing
+        button.disabled = true;
+        const buttonSpan = button.querySelector("span");
+        if (buttonSpan) buttonSpan.textContent = "Processing...";
+        
+        // Get player character
+        const player = game.users.get(playerId);
+        const character = player?.character;
+        
+        if (!character) {
+          ui.notifications.error("Could not find character associated with this effect");
+          button.disabled = false;
+          if (buttonSpan) buttonSpan.textContent = "Retry Status Effects";
+          return;
+        }
+        
+        try {
+          // Show status effect dialog and process results
+          const result = await window.FuAceCards.HealingIntegration.applyFullStatusEffects(
+            highestValue,
+            character
+          );
+          
+          // Update button state based on result
+          if (result && result.applied) {
+            button.classList.add("disabled");
+            button.disabled = true;
+            if (buttonSpan) buttonSpan.textContent = `Status Effects Applied`;
+          } else {
+            button.disabled = false;
+            if (buttonSpan) buttonSpan.textContent = `Retry Status Effects`;
+          }
+        } catch (error) {
+          console.error("Error applying status effects:", error);
+          ui.notifications.error("Failed to apply status effects: " + error.message);
+          button.disabled = false;
+          if (buttonSpan) buttonSpan.textContent = `Retry Status Effects`;
+        }
+      });
     });
+
+    // Add handler for "Select All Allies" button if present
+    const selectAllButtons = html.querySelectorAll('[data-action="selectAllAllies"]');
+    selectAllButtons.forEach(selectAllButton => {
+      selectAllButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        
+        // Deselect all current targets
+        game.user.targets.forEach(t => t.setTarget(false, { releaseOthers: false }));
+        
+        // Select all allied tokens
+        let allyCount = 0;
+        canvas.tokens.placeables.forEach(token => {
+          if (token.actor) {
+            token.setTarget(true, { releaseOthers: false });
+            allyCount++;
+          }
+        });
+        
+        if (allyCount > 0) {
+          ui.notifications.info(`Selected ${allyCount} character tokens`);
+        } else {
+          ui.notifications.warn("No character tokens found on the scene");
+        }
+      });
+    });
+
+
+    });
+  
+    
+
   }
 
   // Handle healing result messages
@@ -732,7 +763,9 @@ export class EventHandlers {
   }
 
   static setupDamageButtons(html) {
-    html.find('[data-action="applyDamageSelected"]').click(async (event) => {
+  const damageButtons = html.querySelectorAll('[data-action="applyDamageSelected"]');
+  damageButtons.forEach(damageButton => {
+    damageButton.addEventListener('click', async (event) => {
       event.preventDefault();
       const button = event.currentTarget;
       const damageType = button.dataset.damageType;
@@ -741,7 +774,7 @@ export class EventHandlers {
       const playerId = button.dataset.playerId;
       
       // For Double Trouble, verify a card has been selected
-      if (setType === 'double-trouble' && !html.find('.fu-selected-card').length) {
+      if (setType === 'double-trouble' && !html.querySelector('.fu-selected-card')) {
         ui.notifications.warn("Please select a card to determine damage type first.");
         return;
       }
@@ -803,48 +836,54 @@ export class EventHandlers {
         
         // Disable the button after application
         button.classList.add("disabled");
-        $(button).find("span").text(`Damage Applied (${damageValue})`);
+        const buttonSpan = button.querySelector("span");
+        if (buttonSpan) buttonSpan.textContent = `Damage Applied (${damageValue})`;
       } catch (error) {
         console.error("Error applying damage:", error);
         ui.notifications.error("Failed to apply damage: " + error.message);
       }
     });
+  });
   }
 
   static setupResourceButtons(html) {
-    html.find('[data-action="applyResourceLoss"]').click(async (event) => {
-      event.preventDefault();
-      const button = event.currentTarget;
-      const actorId = button.dataset.actor;
-      const amount = parseInt(button.dataset.amount);
-      const resource = button.dataset.resource;
-      
-      if (actorId && amount && resource) {
-        const actor = game.actors.get(actorId);
-        if (actor) {
-          // Modify the actor's MP
-          await actor.update({
-            "system.resources.mp.value": Math.max(0, actor.system.resources.mp.value - amount)
-          });
+    const resourceButtons = html.querySelectorAll('[data-action="applyResourceLoss"]');
+    resourceButtons.forEach(resourceButton => {
+      resourceButton.addEventListener('click', async (event) => {
+        event.preventDefault();
+        const button = event.currentTarget;
+        const actorId = button.dataset.actor;
+        const amount = parseInt(button.dataset.amount);
+        const resource = button.dataset.resource;
+        
+        if (actorId && amount && resource) {
+          const actor = game.actors.get(actorId);
+          if (actor) {
+            // Modify the actor's MP
+            await actor.update({
+              "system.resources.mp.value": Math.max(0, actor.system.resources.mp.value - amount)
+            });
 
-          // Disable the button after spending
-          button.classList.add("disabled");
-          $(button).find("span").text(`MP Spent (${amount})`);
-          
-          // Show notification
-          ui.notifications.info(`${actor.name} spent ${amount} MP`);
+            // Disable the button after spending
+            button.classList.add("disabled");
+            const buttonSpan = button.querySelector("span");
+            if (buttonSpan) buttonSpan.textContent = `MP Spent (${amount})`;
+            
+            // Show notification
+            ui.notifications.info(`${actor.name} spent ${amount} MP`);
+          }
         }
-      }
+      });
     });
   }
-  
+
   // Setup Double Trouble card selection in chat
   static setupDoubleTroubleCardSelection(html) {
     // Find the cards in this message
-    const cardImages = html.find('.fu-chat-card-img');
+    const cardImages = html.querySelectorAll('.fu-chat-card-img');
     
     // Add clickable class to all cards
-    cardImages.addClass('fu-card-clickable');
+    cardImages.forEach(img => img.classList.add('fu-card-clickable'));
     
     // Define the mapping for damage types to icon classes
     const damageTypeToIconClass = {
@@ -857,89 +896,115 @@ export class EventHandlers {
     };
     
     // Add click handler to each card
-    cardImages.on('click', function(event) {
-      const cardElement = $(this);
-      let cardSuit = cardElement.data('card-suit');
-      
-      // If suit data not directly available, try to extract from the card name
-      if (!cardSuit) {
-        const cardName = cardElement.attr('title') || '';
-        // Extract suit from name (hearts, diamonds, clubs, spades)
-        const suitMatch = cardName.toLowerCase().match(/(heart|diamond|club|spade)s?/);
-        cardSuit = suitMatch ? suitMatch[0] : '';
-      }
-      
-      // Map suit to damage type based on the standard mapping
-      const suitToDamageType = {
-        'hearts': 'fire',
-        'heart': 'fire',
-        'diamonds': 'air',
-        'diamond': 'air',
-        'clubs': 'earth',
-        'club': 'earth',
-        'spades': 'ice',
-        'spade': 'ice'
-      };
-      
-      const damageType = suitToDamageType[cardSuit.toLowerCase()] || cardSuit;
-      
-      // Remove selected class from any previously selected card
-      cardImages.removeClass('fu-selected-card');
-      
-      // Add selected class to this card
-      cardElement.addClass('fu-selected-card');
-      
-      // Update the damage button with the selected damage type
-      const damageButton = html.find('[data-action="applyDamageSelected"]');
-      if (damageButton.length) {
-        // Update damage type attribute
-        damageButton.attr('data-damage-type', damageType);
+    cardImages.forEach(cardImage => {
+      cardImage.addEventListener('click', function(event) {
+        const cardElement = this;
+        let cardSuit = cardElement.dataset.cardSuit;
         
-        // Get a display name for the damage type
-        const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || damageType.toUpperCase();
+        // If suit data not directly available, try to extract from the card name
+        if (!cardSuit) {
+          const cardName = cardElement.getAttribute('title') || '';
+          // Extract suit from name (hearts, diamonds, clubs, spades)
+          const suitMatch = cardName.toLowerCase().match(/(heart|diamond|club|spade)s?/);
+          cardSuit = suitMatch ? suitMatch[0] : '';
+        }
         
-        // Update the button text
-        damageButton.find('span').html(`Apply ${damageTypeDisplay} damage <i class="icon fas fa-heart-crack"></i>`);
-      }
-      
-      // Update the system's damage label (the one you shared in the DOM)
-      const damageLabel = html.find('.damageType');
-        if (damageLabel.length) {
-            // Remove existing damage type classes
-            damageLabel.removeClass('fire ice earth air light dark physical');
+        // Map suit to damage type based on the standard mapping
+        const suitToDamageType = {
+          'hearts': 'fire',
+          'heart': 'fire',
+          'diamonds': 'air',
+          'diamond': 'air',
+          'clubs': 'earth',
+          'club': 'earth',
+          'spades': 'ice',
+          'spade': 'ice'
+        };
+        
+        const damageType = suitToDamageType[cardSuit.toLowerCase()] || cardSuit;
+        
+        // Remove selected class from any previously selected card
+        cardImages.forEach(img => img.classList.remove('fu-selected-card'));
+        
+        // Add selected class to this card
+        cardElement.classList.add('fu-selected-card');
+        
+        // Update the damage button with the selected damage type
+        const damageButton = html.querySelector('[data-action="applyDamageSelected"]');
+        if (damageButton) {
+          // Update damage type attribute
+          damageButton.setAttribute('data-damage-type', damageType);
+          
+          // Get a display name for the damage type
+          const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || damageType.toUpperCase();
+          
+          // Update the button text
+          const span = damageButton.querySelector('span');
+          if (span) {
+            span.innerHTML = `Apply ${damageTypeDisplay} damage <i class="icon fas fa-heart-crack"></i>`;
+          }
+        }
+
+        SocketManager.emitCardSelection({
+          messageId: html.closest('.message').dataset.messageId,
+          cardId: cardElement.dataset.cardId,
+          damageType: damageType,
+          setType: 'double-trouble'
+        });
+
+        // Store selection on the message document for persistence
+        const messageElement = html.closest('.message');
+        const messageId = messageElement?.dataset.messageId;
+        if (messageId) {
+          const message = game.messages.get(messageId);
+          if (message) {
+            message.setFlag(MODULE_ID, 'cardSelection', {
+              cardId: cardElement.dataset.cardId,
+              damageType: damageType,
+              setType: 'double-trouble'
+            });
+          }
+        }
+        
+        // Update the system's damage label
+        const damageLabel = html.querySelector('.damageType');
+        if (damageLabel) {
+          // Remove existing damage type classes
+          damageLabel.classList.remove('fire', 'ice', 'earth', 'air', 'light', 'dark', 'physical');
+          
+          // Add the new damage type class
+          damageLabel.classList.add(damageType);
+          
+          // Update tooltip for endcap
+          const endcap = damageLabel.querySelector('.endcap');
+          if (endcap) {
+            const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
+                                    damageType.charAt(0).toUpperCase() + damageType.slice(1);
+            endcap.setAttribute('data-tooltip', damageTypeDisplay);
             
-            // Add the new damage type class
-            damageLabel.addClass(damageType);
-            
-            // Update tooltip for endcap
-            const endcap = damageLabel.find('.endcap');
-            if (endcap.length) {
-              const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
-                                      damageType.charAt(0).toUpperCase() + damageType.slice(1);
-              endcap.attr('data-tooltip', damageTypeDisplay);
-              
-              // Use the correct icon class based on damage type
-              const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;
-              endcap.html(`<i class="fua ${iconClass}"></i>`);
-            }
-      }
+            // Use the correct icon class based on damage type
+            const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;
+            endcap.innerHTML = `<i class="fua ${iconClass}"></i>`;
+          }
+        }
+      });
     });
     
     // Initialize the apply damage button to indicate selection is needed
-    const damageButton = html.find('[data-action="applyDamageSelected"]');
-    if (damageButton.length) {
-      damageButton.find('span').html(`Select damage type <i class="icon fas fa-heart-crack"></i>`);
+    const damageButton = html.querySelector('[data-action="applyDamageSelected"]');
+    if (damageButton) {
+      const span = damageButton.querySelector('span');
+      if (span) span.innerHTML = `Select damage type <i class="icon fas fa-heart-crack"></i>`;
     }
   }
 
   // Setup MagicPair card selection in chat
   static setupMagicPairCardSelection(html) {
     // Find the cards in this message
-    const cardImages = html.find('.fu-chat-card-img');
+    const cardImages = html.querySelectorAll('.fu-chat-card-img');
     
     // Add clickable class to all cards
-    cardImages.addClass('fu-card-clickable');
-    
+    cardImages.forEach(img => img.classList.add('fu-card-clickable'));    
     // Define the mapping for damage types to icon classes
     const damageTypeToIconClass = {
       'fire': 'fu-fire',
@@ -964,63 +1029,88 @@ export class EventHandlers {
     };
     
     // Add click handler to each card
-    cardImages.on('click', function(event) {
-      const cardElement = $(this);
-      let cardSuit = cardElement.data('card-suit');
-      
-      // Check if there's a phantom suit for jokers
-      const phantomSuit = cardElement.data('phantom-suit');
-      if (phantomSuit) {
-        cardSuit = phantomSuit;
-      } else if (!cardSuit) {
-        // If no suit data directly available, try to extract from the name
-        const cardName = cardElement.attr('title') || '';
-        const suitMatch = cardName.toLowerCase().match(/(heart|diamond|club|spade)s?/);
-        cardSuit = suitMatch ? suitMatch[0] : '';
-      }
-      
-      // Determine the damage type from the suit
-      const damageType = suitToDamageType[cardSuit.toLowerCase()] || 'physical';
-      
-      // Remove selected class from any previously selected card
-      cardImages.removeClass('fu-selected-card');
-      
-      // Add selected class to this card
-      cardElement.addClass('fu-selected-card');
-      
-      // Specifically target the weapon attack section for Magic Pair
-      const weaponLabel = html.find('.weapon-attack-check .damageType');
-      if (weaponLabel.length) {
-        // Update the damage text with the element type
-        const damageText = weaponLabel.find('#weapon-damage-text');
-        if (damageText.length) {
-          damageText.text(`${window.capitalize(damageType)}`);
+    cardImages.forEach(cardImage => {
+      cardImage.addEventListener('click', function(event) {
+        const cardElement = this;
+        let cardSuit = cardElement.dataset.cardSuit;
+        
+        // Check if there's a phantom suit for jokers
+        const phantomSuit = cardElement.dataset.phantomSuit;
+        if (phantomSuit) {
+          cardSuit = phantomSuit;
+        } else if (!cardSuit) {
+          // If no suit data directly available, try to extract from the name
+          const cardName = cardElement.getAttribute('title') || '';
+          const suitMatch = cardName.toLowerCase().match(/(heart|diamond|club|spade)s?/);
+          cardSuit = suitMatch ? suitMatch[0] : '';
         }
         
-        // Remove existing damage type classes
-        weaponLabel.removeClass('fire ice earth air light dark physical');
+        // Determine the damage type from the suit
+        const damageType = suitToDamageType[cardSuit.toLowerCase()] || 'physical';
         
-        // Add the new damage type class
-        weaponLabel.addClass(damageType);
+        // Remove selected class from any previously selected card
+        cardImages.forEach(img => img.classList.remove('fu-selected-card'));
         
-        // Update tooltip for endcap
-        const endcap = weaponLabel.find('.endcap');
-        if (endcap.length) {
-          const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
-                                  damageType.charAt(0).toUpperCase() + damageType.slice(1);
-          endcap.attr('data-tooltip', `${damageTypeDisplay} Damages`);
+        // Add selected class to this card
+        cardElement.classList.add('fu-selected-card');
+        
+        // Specifically target the weapon attack section for Magic Pair
+        const weaponLabel = html.querySelector('.weapon-attack-check .damageType');
+        if (weaponLabel) {
+          // Update the damage text with the element type
+          const damageText = weaponLabel.querySelector('#weapon-damage-text');
+          if (damageText) {
+            damageText.textContent = `${window.capitalize(damageType)}`;
+          }
           
-          // Use the correct icon class based on damage type
-          const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;
-          endcap.html(`<i class="fua ${iconClass}"></i>`);
+          // Remove existing damage type classes
+          weaponLabel.classList.remove('fire', 'ice', 'earth', 'air', 'light', 'dark', 'physical');
+          
+          // Add the new damage type class
+          weaponLabel.classList.add(damageType);
+          
+          // Update tooltip for endcap
+          const endcap = weaponLabel.querySelector('.endcap');
+          if (endcap) {
+            const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[damageType] || 
+                                    damageType.charAt(0).toUpperCase() + damageType.slice(1);
+            endcap.setAttribute('data-tooltip', `${damageTypeDisplay} Damages`);
+            
+            // Use the correct icon class based on damage type
+            const iconClass = damageTypeToIconClass[damageType] || `fu-${damageType}`;
+            endcap.innerHTML = `<i class="fua ${iconClass}"></i>`;
+          }
+          
+          // Update instruction text to match the damage type
+          const notesText = html.querySelector('.weapon-attack-check .notes');
+          if (notesText) {
+            notesText.innerHTML = `Weapon attacks will deal <strong>${damageType}</strong> damage regardless of weapon type.`;
+          }          
+
+          //Broadcast selection to all clients
+          SocketManager.emitCardSelection({
+            messageId: html.closest('.message').dataset.messageId,
+            cardId: cardElement.dataset.cardId,
+            damageType: damageType,
+            setType: 'magic-pair'
+          });
+
+          // Store selection on the message document for persistence  
+          const messageElement = html.closest('.message');
+          const messageId = messageElement?.dataset.messageId;
+          if (messageId) {
+            const message = game.messages.get(messageId);
+            if (message) {
+              message.setFlag(MODULE_ID, 'cardSelection', {
+                cardId: cardElement.dataset.cardId,
+                damageType: damageType,
+                setType: 'magic-pair'
+              });
+            }
+          }
+
         }
-        
-        // Update instruction text to match the damage type
-        const notesText = html.find('.weapon-attack-check .notes');
-        if (notesText.length) {
-          notesText.html(`Weapon attacks will deal <strong>${damageType}</strong> damage regardless of weapon type.`);
-        }
-      }
+      });
     });
   }
 

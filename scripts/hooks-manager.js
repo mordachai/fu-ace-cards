@@ -28,8 +28,8 @@ export class HooksManager {
     // canvasReady hook - clean up tooltips on scene changes
     Hooks.on('canvasReady', this.onCanvasReady.bind(this));
     
-    // renderChatMessage hook - process card set messages in chat
-    Hooks.on('renderChatMessage', this.onRenderChatMessage.bind(this));
+    // renderChatMessageHTML hook - process card set messages in chat
+    Hooks.on('renderChatMessageHTML', this.onRenderChatMessageHTML.bind(this));
     
     // closeApplication hook - clean up when closing applications
     Hooks.once('closeApplication', this.onCloseApplication.bind(this));
@@ -131,7 +131,7 @@ export class HooksManager {
     
     let html;
     try {
-      html = await renderTemplate(
+      html = await foundry.applications.handlebars.renderTemplate(
         `modules/${MODULE_ID}/templates/areas.hbs`,
         {
           isGM: user.isGM,
@@ -157,7 +157,7 @@ export class HooksManager {
   static registerUIHooks() {
   // Key UI events that might affect our elements
   Hooks.on('renderSidebarTab', () => this.ensureHandlersAttached());
-  Hooks.on('renderChatMessage', () => this.ensureHandlersAttached());
+  Hooks.on('renderChatMessageHTML', () => this.ensureHandlersAttached());
   Hooks.on('renderApplication', () => this.ensureHandlersAttached());
   Hooks.on('renderDialog', () => this.ensureHandlersAttached());
   
@@ -179,23 +179,33 @@ static ensureHandlersAttached() {
 }
   
   // Handler for updateCards hook - MODIFIED
-  static onUpdateCards(cards, change, options, userId) {
-    // Always clean up tooltips when cards change
-    UIManager.cleanupAllTooltips();
+// Handler for updateCards hook - MODIFIED
+static onUpdateCards(cards, change, options, userId) {
+  // Always clean up tooltips when cards change
+  UIManager.cleanupAllTooltips();
+  
+  // Refresh displays when specific card stacks change
+  const tablePile = PileManager.getTablePile();
+  const playerPiles = PileManager.getCurrentPlayerPiles();
+  
+  if (cards === tablePile || 
+      (playerPiles && (cards === playerPiles.deck || cards === playerPiles.hand || cards === playerPiles.discard))) {
     
-    // Refresh displays when specific card stacks change
-    const tablePile = PileManager.getTablePile();
-    const playerPiles = PileManager.getCurrentPlayerPiles();
-    
-    if (cards === tablePile || 
-        (playerPiles && (cards === playerPiles.deck || cards === playerPiles.hand || cards === playerPiles.discard))) {
-      UIManager.renderTable();
-      UIManager.renderHand();
-      
-      // Verify hand area functionality after card updates - ADDED
-      this.verifyHandAreaFunctionality();
+    // Force table to show if cards were added to it
+    if (cards === tablePile && cards.cards.size > 0) {
+      const tableArea = document.getElementById('fu-table-area');
+      if (tableArea) {
+        tableArea.style.display = 'flex';
+      }
     }
+    
+    UIManager.renderTable();
+    UIManager.renderHand();
+    
+    // Verify hand area functionality after card updates - ADDED
+    this.verifyHandAreaFunctionality();
   }
+}
   
   // Handler for updateActor hook - MODIFIED
   static onUpdateActor(actor, changes) {
@@ -222,8 +232,8 @@ static ensureHandlersAttached() {
     }, 500); // Longer timeout for scene changes which can be resource-intensive
   }
   
-  // Handler for renderChatMessage hook
-  static onRenderChatMessage(message, html, data) {
+  // Handler for renderChatMessageHTML hook
+  static onRenderChatMessageHTML(message, html, data) {
     // Already handled by EventHandlers.setupChatMessageHandlers()
     // But we keep this hook registered for future extensions
   }

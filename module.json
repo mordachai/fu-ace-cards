@@ -2,11 +2,12 @@
   "id": "fu-ace-cards",
   "title": "Fabula Ultima: Ace of Cards",
   "description": "Draw, hand, table areas for Fabula Ultima Ace of Cards class with visual enhancements for set detection.",
-  "version": "0.7.2",
+  "version": "0.8.0",
   "license": "MIT",
   "compatibility": {
-    "minimum": "12",
-    "verified": "12"
+    "minimum": "13",
+    "verified": "13",
+    "maximum": "13"
   },
   "authors": [
     {
@@ -49,7 +50,7 @@
   "socket": true,
   "url": "https://github.com/mordachai/fu-ace-cards/tree/main",
   "manifest": "https://raw.githubusercontent.com/mordachai/fu-ace-cards/refs/heads/main/module.json",
-  "download": "https://github.com/mordachai/fu-ace-cards/raw/refs/heads/main/fu-ace-cards.zip",
+  "download": "https://github.com/mordachai/fu-ace-cards/releases/latest/download/fu-ace-cards.zip",
   "relationships": {
     "systems": [
       {
