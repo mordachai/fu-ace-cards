@@ -66,6 +66,11 @@ export class SocketManager {
   }
   
   switch (msg.action) {
+    case 'cardSelection':
+      console.log(`${MODULE_ID} | Processing cardSelection socket message`);
+      this.handleCardSelection(msg);
+      break;
+
     case 'cardToTable':
       console.log(`${MODULE_ID} | Processing cardToTable socket message`);
       this.handleCardToTable(msg);
@@ -128,6 +133,80 @@ export class SocketManager {
       
     default:
       console.warn(`${MODULE_ID} | Unknown socket action:`, msg.action);
+    }
+  }
+
+  static handleCardSelection(msg) {
+    // Don't process our own messages
+    if (msg.senderId === game.userId) return;
+    
+    const messageElement = document.querySelector(`.message[data-message-id="${msg.messageId}"]`);
+    if (messageElement) {
+      // Update the visual selection for all players
+      // Remove previous selections
+      messageElement.querySelectorAll('.fu-selected-card').forEach(card => 
+        card.classList.remove('fu-selected-card')
+      );
+      
+      // Add selection to the chosen card
+      const selectedCard = messageElement.querySelector(`[data-card-id="${msg.cardId}"]`);
+      if (selectedCard) {
+        selectedCard.classList.add('fu-selected-card');
+        
+        // Update damage type based on set type
+        if (msg.setType === 'double-trouble') {
+          // Update damage button
+          const damageButton = messageElement.querySelector('[data-action="applyDamageSelected"]');
+          if (damageButton) {
+            damageButton.setAttribute('data-damage-type', msg.damageType);
+            const span = damageButton.querySelector('span');
+            if (span) {
+              const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[msg.damageType] || msg.damageType.toUpperCase();
+              span.innerHTML = `Apply ${damageTypeDisplay} damage <i class="icon fas fa-heart-crack"></i>`;
+            }
+          }
+        } else if (msg.setType === 'magic-pair') {
+          // Define damage type to icon mapping
+          const damageTypeToIconClass = {
+            'fire': 'fu-fire',
+            'air': 'fu-wind',
+            'earth': 'fu-earth',
+            'ice': 'fu-ice',
+            'light': 'fu-light',
+            'dark': 'fu-dark',
+            'physical': 'fu-physical'
+          };
+          
+          // Update weapon attack section
+          const weaponLabel = messageElement.querySelector('.weapon-attack-check .damageType');
+          if (weaponLabel) {
+            const damageText = weaponLabel.querySelector('#weapon-damage-text');
+            if (damageText) {
+              damageText.textContent = `${window.capitalize(msg.damageType)}`;
+            }
+            
+            weaponLabel.classList.remove('fire', 'ice', 'earth', 'air', 'light', 'dark', 'physical');
+            weaponLabel.classList.add(msg.damageType);
+            
+            // Update tooltip and icon for endcap
+            const endcap = weaponLabel.querySelector('.endcap');
+            if (endcap) {
+              const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[msg.damageType] || 
+                                      msg.damageType.charAt(0).toUpperCase() + msg.damageType.slice(1);
+              endcap.setAttribute('data-tooltip', `${damageTypeDisplay} Damages`);
+              
+              const iconClass = damageTypeToIconClass[msg.damageType] || `fu-${msg.damageType}`;
+              endcap.innerHTML = `<i class="fua ${iconClass}"></i>`;
+            }
+            
+            // Update instruction text
+            const notesText = messageElement.querySelector('.weapon-attack-check .notes');
+            if (notesText) {
+              notesText.innerHTML = `Weapon attacks will deal <strong>${msg.damageType}</strong> damage regardless of weapon type.`;
+            }
+          }
+        }
+      }
     }
   }
 
@@ -589,5 +668,13 @@ export class SocketManager {
     cardId: cardId,
     senderId: game.userId
   });
+  }
+
+  static emitCardSelection(data) {
+    game.socket.emit(`module.${MODULE_ID}`, {
+      action: 'cardSelection',
+      ...data,
+      senderId: game.userId
+    });
   }
 }

@@ -6,6 +6,7 @@ import { PileManager } from './pile-manager.js';
 import { getTablePile, getCurrentPlayerPiles } from './pile-manager.js'; // Add getTablePile here
 import { SET_NAMES } from './set-detector.js';
 import { hideSetTooltip, clearHighlights } from './ui-enhancements.js';
+import { SocketManager } from './socket-manager.js';
 
 export class EventHandlers {
   
@@ -926,6 +927,13 @@ export class EventHandlers {
             span.innerHTML = `Apply ${damageTypeDisplay} damage <i class="icon fas fa-heart-crack"></i>`;
           }
         }
+
+        SocketManager.emitCardSelection({
+          messageId: html.closest('.message').dataset.messageId,
+          cardId: cardElement.dataset.cardId,
+          damageType: damageType,
+          setType: 'double-trouble'
+        });
         
         // Update the system's damage label
         const damageLabel = html.querySelector('.damageType');
@@ -1047,6 +1055,14 @@ export class EventHandlers {
           if (notesText) {
             notesText.innerHTML = `Weapon attacks will deal <strong>${damageType}</strong> damage regardless of weapon type.`;
           }
+
+          //Broadcast selection to all clients
+          SocketManager.emitCardSelection({
+            messageId: html.closest('.message').dataset.messageId,
+            cardId: cardElement.dataset.cardId,
+            damageType: damageType,
+            setType: 'magic-pair'
+          });
         }
       });
     });
