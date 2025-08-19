@@ -28,8 +28,8 @@ export class HooksManager {
     // canvasReady hook - clean up tooltips on scene changes
     Hooks.on('canvasReady', this.onCanvasReady.bind(this));
     
-    // renderChatMessage hook - process card set messages in chat
-    Hooks.on('renderChatMessage', this.onRenderChatMessage.bind(this));
+    // renderChatMessageHTML hook - process card set messages in chat
+    Hooks.on('renderChatMessageHTML', this.onRenderChatMessageHTML.bind(this));
     
     // closeApplication hook - clean up when closing applications
     Hooks.once('closeApplication', this.onCloseApplication.bind(this));
@@ -131,7 +131,7 @@ export class HooksManager {
     
     let html;
     try {
-      html = await renderTemplate(
+      html = await foundry.applications.handlebars.renderTemplate(
         `modules/${MODULE_ID}/templates/areas.hbs`,
         {
           isGM: user.isGM,
@@ -157,7 +157,7 @@ export class HooksManager {
   static registerUIHooks() {
   // Key UI events that might affect our elements
   Hooks.on('renderSidebarTab', () => this.ensureHandlersAttached());
-  Hooks.on('renderChatMessage', () => this.ensureHandlersAttached());
+  Hooks.on('renderChatMessageHTML', () => this.ensureHandlersAttached());
   Hooks.on('renderApplication', () => this.ensureHandlersAttached());
   Hooks.on('renderDialog', () => this.ensureHandlersAttached());
   
@@ -232,8 +232,8 @@ static onUpdateCards(cards, change, options, userId) {
     }, 500); // Longer timeout for scene changes which can be resource-intensive
   }
   
-  // Handler for renderChatMessage hook
-  static onRenderChatMessage(message, html, data) {
+  // Handler for renderChatMessageHTML hook
+  static onRenderChatMessageHTML(message, html, data) {
     // Already handled by EventHandlers.setupChatMessageHandlers()
     // But we keep this hook registered for future extensions
   }
