@@ -137,74 +137,109 @@ export class SocketManager {
   }
 
   static handleCardSelection(msg) {
-    // Don't process our own messages
-    if (msg.senderId === game.userId) return;
-    
+    // Don't process our own messages (unless it's a restore operation)
+    if (msg.senderId === game.userId && msg.senderId !== 'restore') return;
+
     const messageElement = document.querySelector(`.message[data-message-id="${msg.messageId}"]`);
-    if (messageElement) {
-      // Update the visual selection for all players
-      // Remove previous selections
-      messageElement.querySelectorAll('.fu-selected-card').forEach(card => 
-        card.classList.remove('fu-selected-card')
-      );
-      
-      // Add selection to the chosen card
-      const selectedCard = messageElement.querySelector(`[data-card-id="${msg.cardId}"]`);
-      if (selectedCard) {
-        selectedCard.classList.add('fu-selected-card');
-        
-        // Update damage type based on set type
-        if (msg.setType === 'double-trouble') {
-          // Update damage button
-          const damageButton = messageElement.querySelector('[data-action="applyDamageSelected"]');
-          if (damageButton) {
-            damageButton.setAttribute('data-damage-type', msg.damageType);
-            const span = damageButton.querySelector('span');
-            if (span) {
-              const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[msg.damageType] || msg.damageType.toUpperCase();
-              span.innerHTML = `Apply ${damageTypeDisplay} damage <i class="icon fas fa-heart-crack"></i>`;
-            }
-          }
-        } else if (msg.setType === 'magic-pair') {
-          // Define damage type to icon mapping
-          const damageTypeToIconClass = {
-            'fire': 'fu-fire',
-            'air': 'fu-wind',
-            'earth': 'fu-earth',
-            'ice': 'fu-ice',
-            'light': 'fu-light',
-            'dark': 'fu-dark',
-            'physical': 'fu-physical'
-          };
-          
-          // Update weapon attack section
-          const weaponLabel = messageElement.querySelector('.weapon-attack-check .damageType');
-          if (weaponLabel) {
-            const damageText = weaponLabel.querySelector('#weapon-damage-text');
-            if (damageText) {
-              damageText.textContent = `${window.capitalize(msg.damageType)}`;
-            }
-            
-            weaponLabel.classList.remove('fire', 'ice', 'earth', 'air', 'light', 'dark', 'physical');
-            weaponLabel.classList.add(msg.damageType);
-            
-            // Update tooltip and icon for endcap
-            const endcap = weaponLabel.querySelector('.endcap');
-            if (endcap) {
-              const damageTypeDisplay = CONFIG.projectfu?.damageTypes?.[msg.damageType] || 
-                                      msg.damageType.charAt(0).toUpperCase() + msg.damageType.slice(1);
-              endcap.setAttribute('data-tooltip', `${damageTypeDisplay} Damages`);
-              
-              const iconClass = damageTypeToIconClass[msg.damageType] || `fu-${msg.damageType}`;
-              endcap.innerHTML = `<i class="fua ${iconClass}"></i>`;
-            }
-            
-            // Update instruction text
-            const notesText = messageElement.querySelector('.weapon-attack-check .notes');
-            if (notesText) {
-              notesText.innerHTML = `Weapon attacks will deal <strong>${msg.damageType}</strong> damage regardless of weapon type.`;
-            }
-          }
+    if (!messageElement) return;
+
+    // Update the visual selection for all players
+    // Remove previous selections
+    messageElement.querySelectorAll('.fu-selected-card').forEach(card =>
+      card.classList.remove('fu-selected-card')
+    );
+
+    // Add selection to the chosen card
+    const selectedCard = messageElement.querySelector(`[data-card-id="${msg.cardId}"]`);
+    if (!selectedCard) return;
+
+    selectedCard.classList.add('fu-selected-card');
+
+    // Update damage type based on set type
+    if (msg.setType === 'double-trouble') {
+      // Define damage type to icon mapping for double trouble
+      const damageTypeToIconClass = {
+        'fire': 'fu-fire',
+        'air': 'fu-wind',
+        'earth': 'fu-earth',
+        'ice': 'fu-ice',
+        'light': 'fu-light',
+        'dark': 'fu-dark'
+      };
+
+      // Update damage button
+      const damageButton = messageElement.querySelector('[data-action="applyDamageSelected"]');
+      if (damageButton) {
+        damageButton.setAttribute('data-damage-type', msg.damageType);
+        const span = damageButton.querySelector('span');
+        if (span) {
+          const damageTypeDisplay =
+            CONFIG.projectfu?.damageTypes?.[msg.damageType] || msg.damageType.toUpperCase();
+          span.innerHTML = `Apply ${damageTypeDisplay} damage <i class="icon fas fa-heart-crack"></i>`;
+        }
+      }
+
+      // Update the system's damage label
+      const damageLabel = messageElement.querySelector('.damageType');
+      if (damageLabel) {
+        // Remove existing damage type classes
+        damageLabel.classList.remove('fire', 'ice', 'earth', 'air', 'light', 'dark', 'physical');
+
+        // Add the new damage type class
+        damageLabel.classList.add(msg.damageType);
+
+        // Update tooltip and icon for endcap
+        const endcap = damageLabel.querySelector('.endcap');
+        if (endcap) {
+          const damageTypeDisplay =
+            CONFIG.projectfu?.damageTypes?.[msg.damageType] ||
+            msg.damageType.charAt(0).toUpperCase() + msg.damageType.slice(1);
+          endcap.setAttribute('data-tooltip', damageTypeDisplay);
+
+          // Use the correct icon class based on damage type
+          const iconClass = damageTypeToIconClass[msg.damageType] || `fu-${msg.damageType}`;
+          endcap.innerHTML = `<i class="fua ${iconClass}"></i>`;
+        }
+      }
+    } else if (msg.setType === 'magic-pair') {
+      // Define damage type to icon mapping
+      const damageTypeToIconClass = {
+        'fire': 'fu-fire',
+        'air': 'fu-wind',
+        'earth': 'fu-earth',
+        'ice': 'fu-ice',
+        'light': 'fu-light',
+        'dark': 'fu-dark',
+        'physical': 'fu-physical'
+      };
+
+      // Update weapon attack section
+      const weaponLabel = messageElement.querySelector('.weapon-attack-check .damageType');
+      if (weaponLabel) {
+        const damageText = weaponLabel.querySelector('#weapon-damage-text');
+        if (damageText) {
+          damageText.textContent = `${window.capitalize?.(msg.damageType) ?? (msg.damageType.charAt(0).toUpperCase() + msg.damageType.slice(1))}`;
+        }
+
+        weaponLabel.classList.remove('fire', 'ice', 'earth', 'air', 'light', 'dark', 'physical');
+        weaponLabel.classList.add(msg.damageType);
+
+        // Update tooltip and icon for endcap
+        const endcap = weaponLabel.querySelector('.endcap');
+        if (endcap) {
+          const damageTypeDisplay =
+            CONFIG.projectfu?.damageTypes?.[msg.damageType] ||
+            msg.damageType.charAt(0).toUpperCase() + msg.damageType.slice(1);
+          endcap.setAttribute('data-tooltip', `${damageTypeDisplay} Damages`);
+
+          const iconClass = damageTypeToIconClass[msg.damageType] || `fu-${msg.damageType}`;
+          endcap.innerHTML = `<i class="fua ${iconClass}"></i>`;
+        }
+
+        // Update instruction text
+        const notesText = messageElement.querySelector('.weapon-attack-check .notes');
+        if (notesText) {
+          notesText.innerHTML = `Weapon attacks will deal <strong>${msg.damageType}</strong> damage regardless of weapon type.`;
         }
       }
     }

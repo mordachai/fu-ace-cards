@@ -524,6 +524,23 @@ export class EventHandlers {
         this.setupDamageButtons(html);
         this.setupResourceButtons(html);
         this.setupHealingButtons(html);
+
+        // ADD THIS HERE - Restore any saved card selections
+        const savedSelection = message.getFlag(MODULE_ID, 'cardSelection');
+        if (savedSelection) {
+          setTimeout(() => {
+            // Use the same logic as handleCardSelection
+            if (window.FuAceCards?.SocketManager) {
+              window.FuAceCards.SocketManager.handleCardSelection({
+                messageId: message.id,
+                cardId: savedSelection.cardId,
+                damageType: savedSelection.damageType,
+                setType: savedSelection.setType,
+                senderId: 'restore' // Special flag to prevent infinite loops
+              });
+            }
+          }, 100);
+        }
       }
       
       // Also check for healing result messages
@@ -934,6 +951,20 @@ export class EventHandlers {
           damageType: damageType,
           setType: 'double-trouble'
         });
+
+        // Store selection on the message document for persistence
+        const messageElement = html.closest('.message');
+        const messageId = messageElement?.dataset.messageId;
+        if (messageId) {
+          const message = game.messages.get(messageId);
+          if (message) {
+            message.setFlag(MODULE_ID, 'cardSelection', {
+              cardId: cardElement.dataset.cardId,
+              damageType: damageType,
+              setType: 'double-trouble'
+            });
+          }
+        }
         
         // Update the system's damage label
         const damageLabel = html.querySelector('.damageType');
@@ -1054,7 +1085,7 @@ export class EventHandlers {
           const notesText = html.querySelector('.weapon-attack-check .notes');
           if (notesText) {
             notesText.innerHTML = `Weapon attacks will deal <strong>${damageType}</strong> damage regardless of weapon type.`;
-          }
+          }          
 
           //Broadcast selection to all clients
           SocketManager.emitCardSelection({
@@ -1063,6 +1094,21 @@ export class EventHandlers {
             damageType: damageType,
             setType: 'magic-pair'
           });
+
+          // Store selection on the message document for persistence  
+          const messageElement = html.closest('.message');
+          const messageId = messageElement?.dataset.messageId;
+          if (messageId) {
+            const message = game.messages.get(messageId);
+            if (message) {
+              message.setFlag(MODULE_ID, 'cardSelection', {
+                cardId: cardElement.dataset.cardId,
+                damageType: damageType,
+                setType: 'magic-pair'
+              });
+            }
+          }
+
         }
       });
     });
